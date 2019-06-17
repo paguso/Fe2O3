@@ -1,0 +1,7 @@
+[package]
+name = "vmat"
+version = "0.1.0"
+authors = ["Paulo Fonseca <paguso@cin.ufpe.br>"]
+edition = "2018"
+
+[dependencies]
