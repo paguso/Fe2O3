@@ -1,3 +1,3 @@
 mod alphabet;
-//mod minimiser;
+mod minimiser;
 mod xstring;

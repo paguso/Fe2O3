@@ -76,7 +76,7 @@ impl Alphabet<char> for DNAAlphabet {
     }
 
     fn chr(&self, ord: usize) -> Option<&char> {
-        if ord<4 {
+        if ord < 4 {
             Some(&self.letters[ord])
         }
         else {
