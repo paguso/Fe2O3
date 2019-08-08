@@ -3,12 +3,52 @@ use crate::xstring::XString as XString;
 use crate::alphabet::Alphabet;
 
 
-trait XStringRank {
-    fn rank(&self, s: &impl XString) -> usize;
+trait XStrCmp {
+    type CharType;
+    fn cmp(first: &[Self::CharType], second: &[Self::CharType]) -> cmp::Ordering;
 }
 
+struct LexStrCmp<T> {
+    x : T
+}
 
-fn find_minimisers(s: &impl XString, w: usize, k:usize, rank: &impl XStringRank) -> Option<Vec<usize>> {
+impl<T> LexStrCmp<T> 
+where T:PartialOrd {
+    fn new(x: T) -> LexStrCmp<T> {
+        LexStrCmp{x}
+    }
+}
+
+impl<T> XStrCmp for LexStrCmp<T> 
+where T:PartialOrd {
+    type CharType = T;
+    fn cmp(first: &[Self::CharType], second: &[Self::CharType]) -> cmp::Ordering {
+        let mut i = 0;
+        let m = first.len();
+        let n = second.len();
+        while i < m && i < n  {
+            if first[i] < second[i] {
+                return cmp::Ordering::Less;
+            }
+            else if first[i] > second[i] {
+                return cmp::Ordering::Greater;
+            }
+            else {
+                i += 1;
+            }
+        }        
+        if i == m && i < n {
+            return cmp::Ordering::Less;
+        }
+        else if i < m && i == n {
+            return cmp::Ordering::Greater;
+        }
+        return cmp::Ordering::Equal;
+    }
+
+}
+
+fn find_minimisers(s: &impl XString, w: usize, k:usize, rank: &impl XStrCmp) -> Option<Vec<usize>> {
     let n = s.len();
     if n < k || w == 0 {
         // no kmer
