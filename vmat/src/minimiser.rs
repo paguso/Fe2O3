@@ -3,6 +3,20 @@ use crate::xstring::XString as XString;
 use crate::alphabet::Alphabet;
 
 
+
+
+fn lex_rank(s: &impl XString) -> usize {
+    let mut r:usize = 0;
+    let ab = s.alphabet();
+    for &c in s.iter() {
+       r *= ab.len();
+       r += ab.ord(&c).expect(format!("Alphabet does not contain char").as_str()); 
+    }
+    r
+}
+
+
+
 trait XStrCmp {
     type CharType;
     fn cmp(first: &[Self::CharType], second: &[Self::CharType]) -> cmp::Ordering;
@@ -45,10 +59,12 @@ where T:PartialOrd {
         }
         return cmp::Ordering::Equal;
     }
-
 }
 
-fn find_minimisers(s: &impl XString, w: usize, k:usize, rank: &impl XStrCmp) -> Option<Vec<usize>> {
+
+
+
+fn find_minimisers(s: &impl XString, w: usize, k:usize, rank: fn(&impl XString)->usize) -> Option<Vec<usize>> {
     let n = s.len();
     if n < k || w == 0 {
         // no kmer

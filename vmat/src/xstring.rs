@@ -1,31 +1,44 @@
 //use std::vec::Vec;
+use crate::alphabet::Alphabet;
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
-use std::iter::IntoIterator;
+use std::iter::{Iterator, IntoIterator};
+use std::rc::Rc;
 
+pub trait XString : Index<usize> + IndexMut<usize> + Deref + DerefMut + IntoIterator  {
+    type CharType: Eq + Copy;
 
-pub trait XString : Index<usize> + IndexMut<usize> + Deref + DerefMut + IntoIterator   {
-    type CharType;
-
+    fn alphabet(&self) -> Rc<Alphabet<CharType=Self::CharType>>;
     fn len(&self) -> usize;
     fn push(&mut self, value: Self::CharType);
     fn substring(&self, begin: usize, end: usize) -> &[Self::CharType];
+    fn iter(&self) -> std::slice::Iter<Self::CharType>;
 }
 
 struct VecString<T> {
+    ab: Rc<Alphabet<CharType=T>>,
     v: Vec<T>,
 }
 
 impl<T> VecString<T> {
-    fn new() -> VecString<T> {
+    fn new(ab: Rc<Alphabet<CharType=T>>) -> VecString<T> {
         VecString {
+            ab,
             v: Vec::new()
         }
     }
 }
 
-impl<T> XString for VecString<T> {
+impl<T: Copy + Eq> XString for VecString<T> {
     type CharType = T;
+    
+    fn alphabet(&self) -> Rc<Alphabet<CharType=Self::CharType>> {
+        return self.ab.clone();        
+    }
+    
+    fn iter(&self) -> std::slice::Iter<Self::CharType> {
+        self.v.iter()
+    }
 
     fn len(&self) -> usize {
         self.v.len()

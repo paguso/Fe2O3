@@ -2,16 +2,16 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
 
-pub trait Alphabet<T> 
-    where T: Eq
+pub trait Alphabet 
 {
+    type CharType: Eq + Copy;
     fn len(&self) -> usize;
-    fn chr(&self, ord: usize) -> Option<&T>;
-    fn ord(&self, chr: &T) -> Option<usize>;
+    fn chr(&self, ord: usize) -> Option<&Self::CharType>;
+    fn ord(&self, chr: &Self::CharType) -> Option<usize>;
 }
 
 pub struct HashAlphabet<T> 
-    where T: Hash + Eq
+    where T: Hash + Eq + Copy
 {
     chr_vec: Vec<T>,
     ord_map: HashMap<T, usize>
@@ -31,18 +31,20 @@ impl<T> HashAlphabet<T>
     }
 }
 
-impl<T> Alphabet<T> for HashAlphabet<T> 
+impl<T> Alphabet for HashAlphabet<T> 
     where T: Copy + Hash + Eq 
 {
+    type CharType = T;
+
     fn len(&self) -> usize {
         self.chr_vec.len()
     }
 
-    fn chr(&self, ord: usize) -> Option<&T> {
+    fn chr(&self, ord: usize) -> Option<&Self::CharType> {
         self.chr_vec.get(ord)
     }
 
-    fn ord(&self, chr: &T) -> Option<usize> {
+    fn ord(&self, chr: &Self::CharType) -> Option<usize> {
         match self.ord_map.get(chr) {
             Some(val) => Some(*val),
             None => None
@@ -70,12 +72,15 @@ impl DNAAlphabet {
     }
 }
 
-impl Alphabet<char> for DNAAlphabet {
+impl Alphabet for DNAAlphabet {
+
+    type CharType = char;
+
     fn len(&self) -> usize {
         4
     }
 
-    fn chr(&self, ord: usize) -> Option<&char> {
+    fn chr(&self, ord: usize) -> Option<&Self::CharType> {
         if ord < 4 {
             Some(&self.letters[ord])
         }
@@ -84,7 +89,7 @@ impl Alphabet<char> for DNAAlphabet {
         }
     }
 
-    fn ord(&self, chr: &char) -> Option<usize> {
+    fn ord(&self, chr: &Self::CharType) -> Option<usize> {
         match chr {
             'a' => Some(0),
             'c' => Some(1),
@@ -155,7 +160,5 @@ mod tests {
         assert_eq!(ab.ord(&'g',).unwrap(), 2);
         assert_eq!(ab.ord(&'_'), None );
     }
-
-
 
 }
