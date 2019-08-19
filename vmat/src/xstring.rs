@@ -1,103 +1,108 @@
-//use std::vec::Vec;
-use crate::alphabet::Alphabet;
+use std::cmp;
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
-use std::iter::{Iterator, IntoIterator};
 use std::rc::Rc;
+use std::slice::SliceIndex;
 
-pub trait XString : Index<usize> + IndexMut<usize> + Deref + DerefMut + IntoIterator  {
-    type CharType: Eq + Copy;
+use crate::alphabet::Alphabet;
 
-    fn alphabet(&self) -> Rc<Alphabet<CharType=Self::CharType>>;
-    fn len(&self) -> usize;
-    fn push(&mut self, value: Self::CharType);
-    fn substring(&self, begin: usize, end: usize) -> &[Self::CharType];
-    fn iter(&self) -> std::slice::Iter<Self::CharType>;
+pub struct XString<C>
+{
+    v: Vec<C>,
 }
 
-struct VecString<T> {
-    ab: Rc<Alphabet<CharType=T>>,
-    v: Vec<T>,
-}
-
-impl<T> VecString<T> {
-    fn new(ab: Rc<Alphabet<CharType=T>>) -> VecString<T> {
-        VecString {
-            ab,
+impl<C> XString<C> 
+{ 
+    pub fn new() -> Self {
+        XString {
             v: Vec::new()
         }
     }
-}
 
-impl<T: Copy + Eq> XString for VecString<T> {
-    type CharType = T;
-    
-    fn alphabet(&self) -> Rc<Alphabet<CharType=Self::CharType>> {
-        return self.ab.clone();        
-    }
-    
-    fn iter(&self) -> std::slice::Iter<Self::CharType> {
-        self.v.iter()
-    }
-
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.v.len()
     }   
+
+    pub fn substring(&self, begin:usize, end: usize) -> &[C] {
+        &self.v[begin..end]
+    }
     
-    fn push(&mut self, value: T) {
+    pub fn push(&mut self, value: C) {
         self.v.push(value);
     }
     
-    fn substring(&self, begin: usize, end: usize) -> &[Self::CharType] {
-        &self.v[begin..end]        
+}
+
+impl<C, I> Index<I> for XString<C>
+where
+    I: SliceIndex<[C]>,
+{
+    type Output = <I as SliceIndex<[C]>>::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        &self.v[index]
     }
 }
 
-impl<T> Index<usize> for VecString<T> {
-    type Output = T;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.v[index]
-    } 
-}
-
-impl<T> IndexMut<usize> for VecString<T> {
-    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Self::Output {
+impl<C, I> IndexMut<I> for XString<C> 
+where 
+    I: SliceIndex<[C]>
+{
+    fn index_mut<'a>(&'a mut self, index: I) -> &'a mut Self::Output {
         &mut self.v[index]
     }
 }
 
-impl<T> Deref for VecString<T> {
-    type Target = [T];
+impl<C> Deref for XString<C> {
+    type Target = [C];
     fn deref (&self) -> &Self::Target {
         &self.v
     }
 }
 
-impl<T> DerefMut for VecString<T> {
+impl<C> DerefMut for XString<C> {
     fn deref_mut (&mut self) -> &mut Self::Target {
         &mut self.v
     }
 }
 
-impl<T> IntoIterator for VecString<T> {
-    type Item = T;
-    type IntoIter = ::std::vec::IntoIter<Self::Item>;
 
-    fn into_iter(self) -> Self::IntoIter {
-       self.v.into_iter()
+
+pub trait XStrRanker {
+    type  CharType;
+    fn rank(&self, s: &[Self::CharType]) -> usize; 
+}
+
+pub struct XStrLexRanker<C, A>
+where C: Eq,  
+      A: Alphabet<CharType=C>
+{
+    ab : Rc<A>
+}
+
+impl<C, A> XStrLexRanker<C, A> 
+where C: Eq,  
+      A: Alphabet<CharType=C>
+{
+    pub fn new(ab: Rc<A>) -> Self {
+        XStrLexRanker{ab}
     }
 }
 
-impl<'a, T> IntoIterator for &'a VecString<T> {
-    type Item = &'a T;
-    type IntoIter = ::std::slice::Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.v.iter()
+impl<C, A> XStrRanker for XStrLexRanker<C, A> 
+where C: Eq,  
+      A: Alphabet<CharType=C>
+{
+    type CharType = C;
+    fn rank(&self, s: &[Self::CharType]) -> usize {
+        let mut r:usize = 0;
+        for c in s {
+            r = (r * self.ab.len()) + self.ab.ord(c).expect("Char not in alphabet");
+        }
+        r
     }
-}
 
+} 
 
 
 #[cfg(test)]
@@ -105,29 +110,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_vecstr_len() {
-        let mut vstr:VecString<u8> = VecString::new();
-        assert_eq!(vstr.len(), 0);
+    fn test_xstr_len() {
+        let mut xstr:XString<u8> = XString::new();
+        assert_eq!(xstr.len(), 0);
     }
     
     #[test]
-    fn test_vecstr_push() {
-        let mut vstr:VecString<u8> = VecString::new();
-        assert_eq!(vstr.len(), 0);
+    fn test_xstr_push() {
+        let mut xstr:XString<u8> = XString::new();
+        assert_eq!(xstr.len(), 0);
         let n:usize = 10;
         for i in 0..n {
-            vstr.push(i as u8);
+            xstr.push(i as u8);
         }
-        assert_eq!(vstr.len(), n);
+        assert_eq!(xstr.len(), n);
         for i in 0..n {
-            assert_eq!(vstr[i], i as u8);
+            assert_eq!(xstr[i], i as u8);
         }
         let mut i:u8 = 0;
-        for &c in vstr.iter() {
+        for &c in xstr.iter() {
             assert_eq!(c, i);
             i += 1;
         }
-        vstr[0] = 2;
+        xstr[0] = 2;
     }
 
     fn len_deref<T>(slice: &[T]) -> usize {
@@ -135,25 +140,41 @@ mod tests {
         slice.len()
     }
 
+    /*
     #[test]
-    fn test_vecstr_substring() {
-        let mut vstr:VecString<u8> = VecString::new();
-        assert_eq!(vstr.len(), 0);
+    fn test_xstr_substring() {
+        let mut xstr:XString<u8> = XString::new();
+        assert_eq!(xstr.len(), 0);
         let n:usize = 10;
         for i in 0..n {
-            vstr.push(i as u8);
+            xstr.push(i as u8);
         }
-        assert_eq!(vstr.len(), n);
+        assert_eq!(xstr.len(), n);
         let begin = 1;
         let end = 5;
-        let s = vstr.substring(begin, end);
+        let s = xstr.substring(begin, end);
         assert_eq!(s.len(), end-begin);
         for i in 0..s.len() {
-            assert_eq!(vstr[begin+i], s[i]);
+            assert_eq!(xstr[begin+i], s[i]);
         }
-        assert_eq!(len_deref(&vstr), n);
+        assert_eq!(len_deref(&xstr), n);
         assert_eq!(len_deref(&s), end-begin);
-
     }
+    */
+    
+    #[test]
+    fn test_xstr_slice() {
+        let mut xstr:XString<u8> = XString::new();
+        assert_eq!(xstr.len(), 0);
+        let n:usize = 10;
+        for i in 0..n {
+            xstr.push(i as u8);
+        }
+        let k = 4;
+        for i in 0..n-k {
+            let slice = &xstr[i..i+k];
+        }
+    }
+
 
 }

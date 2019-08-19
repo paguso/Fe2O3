@@ -4,21 +4,21 @@ use std::ops::Index;
 
 pub trait Alphabet 
 {
-    type CharType: Eq + Copy;
+    type CharType: Eq;
     fn len(&self) -> usize;
     fn chr(&self, ord: usize) -> Option<&Self::CharType>;
     fn ord(&self, chr: &Self::CharType) -> Option<usize>;
 }
 
 pub struct HashAlphabet<T> 
-    where T: Hash + Eq + Copy
+    where T: Hash + Copy + Eq
 {
     chr_vec: Vec<T>,
     ord_map: HashMap<T, usize>
 }
 
 impl<T> HashAlphabet<T> 
-    where T: Copy + Hash + Eq 
+    where T:  Hash + Copy + Eq 
 {
     pub fn new(chr_vec: Vec<T>) -> HashAlphabet<T> {
         let mut ord_map = HashMap::new();
@@ -32,7 +32,7 @@ impl<T> HashAlphabet<T>
 }
 
 impl<T> Alphabet for HashAlphabet<T> 
-    where T: Copy + Hash + Eq 
+    where T:  Hash + Copy + Eq 
 {
     type CharType = T;
 
@@ -54,7 +54,7 @@ impl<T> Alphabet for HashAlphabet<T>
 }
 
 impl<T> Index<usize> for HashAlphabet<T> 
-    where T: Copy + Hash + Eq
+    where T: Hash + Copy + Eq
 {
     type Output = T;
     fn index(&self, idx: usize) -> &Self::Output {
