@@ -4,7 +4,8 @@ use std::io::BufReader;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::fs::File;
-
+use std::slice::SliceIndex;
+use std::ops::Index;
 
 pub struct XStream<R> 
 where R: Read + Seek
@@ -44,13 +45,19 @@ where R: Read + Seek
 
 }
 
-impl<I> Index<I> for XStream
+impl<I, R> Index<I> for XStream<R>
 where
-    I: SliceIndex<[u8]>,
+    I: SliceIndex<[u8]> + std::any::Any,
+    R: Read + Seek
 {
     type Output = <I as SliceIndex<[u8]>>::Output;
 
     fn index(&self, index: I) -> &Self::Output {
+        let bi = Box::new(index);
+        if let Ok(i) = bi.downcast::<usize>() { 
+            self.buf[i]
+        }
+        panic!("Invalid index"); 
     }
 }
 
