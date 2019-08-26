@@ -6,60 +6,56 @@ use std::io::SeekFrom;
 use std::fs::File;
 use std::slice::SliceIndex;
 use std::ops::Index;
+use std::default::Default;
 
-pub struct XStream<R> 
+pub struct XStream<R, C> 
 where R: Read + Seek
 {
     reader: R,
-    buf: Vec<u8>,
-    bfrom: usize,
-    bto: usize,
-    bstart: usize,
-    fpos: u64,
+    buf: Vec<C>,
+    fpos: u64, 
+    typesize: usize
 }
 
-impl<R> XStream<R> 
-where R: Read + Seek
+impl<R, C> XStream<R, C> 
+where R: Read + Seek, 
+      C: Default
 {
     fn new(reader: R) -> Self {
         XStream {
             reader: reader,
             buf: Vec::new(),
-            bfrom: 0,
-            bto: 0,
-            bstart: 0,
-            fpos: 0
+            fpos: 0, 
+            typesize: std::mem::size_of::<C>()
         }
     }
 
-    fn read_to_buf(&mut self, offset:u64, nbytes: usize) -> Result<usize, std::io::Error> {
+    fn read_to_buf(&mut self, offset:u64, nitems: usize) -> Result<usize, std::io::Error> {
         self.fpos = self.reader.seek(SeekFrom::Start(offset))?;
-        if nbytes > self.buf.len() {
-            self.buf.resize(nbytes, 0);
+        let nbytes = self.typesize * nitems;
+        if nitems > self.buf.capacity() {
+            self.buf.reserve(nitems-self.buf.capacity());
         }
-        let n = self.reader.read(&mut self.buf[..nbytes])?;
-        self.bfrom = self.fpos as usize;
-        self.bto = self.bfrom + n;
-        Ok(n)
+        let mut items_read:usize = 0;
+        unsafe {
+            let mut bptr = self.buf.as_mut_ptr() as *mut u8;
+            let mut bufslice = std::slice::from_raw_parts_mut(bptr, nbytes) as &mut [u8];
+            assert_eq!(bufslice.len(), nbytes);
+            match self.reader.read(bufslice) {
+                Ok(bytes_read) => {
+                    items_read = bytes_read/self.typesize;
+                } 
+                _ => {
+                    items_read = 0;
+                }
+            }
+            self.buf.set_len(items_read);
+        }
+        Ok(items_read)
     }
 
 }
 
-impl<I, R> Index<I> for XStream<R>
-where
-    I: SliceIndex<[u8]> + std::any::Any,
-    R: Read + Seek
-{
-    type Output = <I as SliceIndex<[u8]>>::Output;
-
-    fn index(&self, index: I) -> &Self::Output {
-        let bi = Box::new(index);
-        if let Ok(i) = bi.downcast::<usize>() { 
-            self.buf[i]
-        }
-        panic!("Invalid index"); 
-    }
-}
 
 
 #[cfg(test)]
@@ -73,14 +69,15 @@ mod tests {
     use std::io::Write;
 
     fn test_setup() -> std::io::Result<()> {
-        let mut v:Vec<u8> = vec![0];
-        for i in 0..=255 {
+        let mut v:Vec<u16> = vec![0];
+        for i in 0..1024 {
             v.push(i);
         }
         let mut w = BufWriter::new(File::create("test.txt")?);
-        for i in 0..=255 {
-            v[i] = i as u8;
-            w.write_all(&v)?;
+        for i in 0..1024 {
+            v[i] = i as u16;
+            let buf = &v[i..i+1] as &[u8];
+            w.write_all();
         }
         w.flush()?;
         Ok(()) 
