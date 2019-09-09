@@ -5,15 +5,34 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::fs::File;
 use std::slice::SliceIndex;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 use std::default::Default;
+use std::ops::Range;
+use std::cell::RefCell;
 
-pub struct XStream<R, C> 
-where R: Read + Seek
+struct XStreamCore<R,C>
+where R: Read+Seek 
 {
     reader: R,
     buf: Vec<C>,
     fpos: u64, 
+}
+
+impl<R,C> XStreamCore<R,C> {
+    fn new(reader: R) {
+        XStreamCore {
+            reader: reader, 
+            buf: Vec::new(),
+            fpos: 0
+        }
+    }
+}
+
+
+pub struct XStream<R, C> 
+where R: Read + Seek
+{
+    core: XStreamCore<R,C>,
     typesize: usize
 }
 
@@ -61,9 +80,46 @@ where R: Read + Seek
         self.read_to_buf((from*self.typesize) as u64, (to-from));
         &self.buf[0..to-from]
     }
-
 }
 
+
+trait XStreamIndex<R,C> 
+where R: Read + Seek
+{
+    fn index<'a>(&self, xstr: &'a mut XStream<R,C>) -> &'a [C];
+}
+
+
+impl<R,C> XStreamIndex<R,C> for Range<usize> 
+where R: Read + Seek
+{
+    fn index<'a>(&self, xstr: &'a mut XStream<R,C>) -> &'a [C] {
+        xstr.get_slice(self.start, self.end)
+    }
+}
+
+impl<R, C, I> Index<I> for XStream<R, C>
+where R: Read + Seek,
+      I: XStreamIndex<R, C>,
+{
+    type Output = [C];
+
+    fn index(&self, index: I) -> &Self::Output {
+        index.index(&mut self);
+    }
+}
+/*
+impl<R, C, I> IndexMut<I> for XStream<R, C>
+where R: Read + Seek,
+      I: XStreamIndex<R, C>,
+{
+    //type Output = [C];
+
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        index.index_mut(&mut self)
+    }
+}
+*/
 
 #[cfg(test)] 
 mod tests {
