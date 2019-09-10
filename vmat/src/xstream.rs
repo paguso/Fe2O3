@@ -16,40 +16,25 @@ where R: Read+Seek
     reader: R,
     buf: Vec<C>,
     fpos: u64, 
-}
-
-impl<R,C> XStreamCore<R,C> {
-    fn new(reader: R) {
-        XStreamCore {
-            reader: reader, 
-            buf: Vec::new(),
-            fpos: 0
-        }
-    }
-}
-
-
-pub struct XStream<R, C> 
-where R: Read + Seek
-{
-    core: XStreamCore<R,C>,
     typesize: usize
 }
 
-impl<R, C> XStream<R, C> 
-where R: Read + Seek
+impl<R,C> XStreamCore<R,C> 
+where R: Read+Seek 
 {
-    pub fn new(reader: R, someval: C) -> Self {
-        XStream {
-            reader: reader,
+    fn new(reader: R, typesize: usize) -> XStreamCore<R,C> {
+        XStreamCore {
+            reader: reader, 
             buf: Vec::new(),
-            fpos: 0, 
-            typesize: std::mem::size_of::<C>()
+            typesize: typesize,
+            fpos: 0
         }
     }
-
-    fn read_to_buf(&mut self, offset:u64, nitems: usize) -> Result<usize, std::io::Error> {
-        self.fpos = self.reader.seek(SeekFrom::Start(offset))?;
+    
+    fn read_to_buf(&mut self, from:usize, to: usize) -> Result<usize, std::io::Error> {
+        let offset = from*self.typesize;
+        let nitems = to - from;
+        self.fpos = self.reader.seek(SeekFrom::Start(offset as u64))?;
         let nbytes = self.typesize * nitems;
         if nitems > self.buf.len() {
             //println!("trying to reallocate from {} to {}", self.buf.capacity(), nitems - self.buf.capacity());
@@ -71,29 +56,61 @@ where R: Read + Seek
         Ok(items_read)
     }
 
-    pub fn get(&mut self, index:usize) -> &C {
-        self.read_to_buf((index*self.typesize) as u64, 1);
-        &self.buf[0]
+    fn get<'a> (&'a self, index: usize) -> &C {
+        &self.buf[index]
     }
 
-    pub fn get_slice(&mut self, from: usize, to:usize) -> &[C] {
-        self.read_to_buf((from*self.typesize) as u64, (to-from));
-        &self.buf[0..to-from]
+    fn get_slice<'a> (&'a self, start: usize , end: usize) -> &[C] {
+        &self.buf[start..end]
+    }
+
+}
+
+
+pub struct XStream<R, C> 
+where R: Read + Seek
+{
+    core: RefCell<XStreamCore<R,C>>,
+}
+
+impl<R, C> XStream<R, C> 
+where R: Read + Seek
+{
+    pub fn new(reader: R, someval: C) -> Self {
+        XStream {
+            core: RefCell::new(XStreamCore::new(reader, std::mem::size_of::<C>())),
+        }
+    }
+
+    pub fn get(&self, index:usize) -> &C {
+        self.core.borrow_mut().read_to_buf(index, index+1);
+        unsafe {
+            let ptr = self.core.as_ptr();
+            XStreamCore::get(&*ptr, index)
+        }
+    }
+
+    pub fn get_slice(&self, start: usize, end:usize) -> &[C] {
+        self.core.borrow_mut().read_to_buf(start, end);
+        unsafe{
+            let ptr = self.core.as_ptr();
+            XStreamCore::get_slice(&*ptr, start, end)
+        }
     }
 }
 
 
-trait XStreamIndex<R,C> 
+pub trait XStreamIndex<R,C> 
 where R: Read + Seek
 {
-    fn index<'a>(&self, xstr: &'a mut XStream<R,C>) -> &'a [C];
+    fn index<'a>(&self, xstr: &'a XStream<R,C>) -> &'a [C];
 }
 
 
 impl<R,C> XStreamIndex<R,C> for Range<usize> 
 where R: Read + Seek
 {
-    fn index<'a>(&self, xstr: &'a mut XStream<R,C>) -> &'a [C] {
+    fn index<'a>(&self, xstr: &'a XStream<R,C>) -> &'a [C] {
         xstr.get_slice(self.start, self.end)
     }
 }
@@ -105,21 +122,9 @@ where R: Read + Seek,
     type Output = [C];
 
     fn index(&self, index: I) -> &Self::Output {
-        index.index(&mut self);
+        index.index(&self)
     }
 }
-/*
-impl<R, C, I> IndexMut<I> for XStream<R, C>
-where R: Read + Seek,
-      I: XStreamIndex<R, C>,
-{
-    //type Output = [C];
-
-    fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        index.index_mut(&mut self)
-    }
-}
-*/
 
 #[cfg(test)] 
 mod tests {
