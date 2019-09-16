@@ -2,25 +2,27 @@
 use crate::xstring::XString;
 
 pub trait XStream {
-    type Item;
+    type CharType;
     
     /// Returns whether the End OF Stream is reached
-    fn eos(&self) -> bool;
+    fn eos(&self) -> Result<bool, &str>;
 
     /// Reads from stream into the given buffer.
     /// Returns the number of items (chars) read.
-    fn read(&mut self, buf: &mut [Self::Item]) -> Result<usize, &str>;
+    fn read(&mut self, buf: &mut [Self::CharType]) -> Result<usize, &str>;
+
+    fn get(&mut self) -> Result<Option<Self::CharType>, &str>;
 }
 
 struct XStrStream<C> 
-where C: Copy
+where C: Copy + Default
 {
     xstr: XString<C>, 
     cur: usize
 }
 
 impl<C> XStrStream<C> 
-where C: Copy
+where C: Copy + Default
 {
     fn open(xstr: XString<C>) -> Self {
         XStrStream {
@@ -37,9 +39,21 @@ where C: Copy
 
 
 impl<C> XStream for XStrStream<C> 
-where C: Copy
+where C: Copy + Default
 {
-    type Item = C;
+    type CharType = C;
+    
+    fn get(&mut self) -> Result<Option<C>, &str> {
+        if self.cur < self.xstr.len() {
+            self.cur += 1;
+            Ok(Some(self.xstr[self.cur-1]))
+        }
+        else {
+            Ok(None)
+        }
+    }
+    
+    
     fn read(&mut self, buf: &mut [C]) -> Result<usize, &str> {
         let nitems = std::cmp::min(buf.len(), self.xstr.len()-self.cur);
         buf[..nitems].copy_from_slice(&self.xstr[self.cur..self.cur+nitems]);
@@ -47,8 +61,8 @@ where C: Copy
         Ok(nitems)
     }
 
-    fn eos(&self) -> bool {
-        self.cur >= self.xstr.len()
+    fn eos(&self) -> Result<bool, &str> {
+        Ok(self.cur >= self.xstr.len())
     }
 }
 
@@ -67,7 +81,7 @@ mod tests {
         let mut stream = XStrStream::open(xstr);
         let mut buf = [0;3];
         let mut sum_chars = 0;
-        while ! stream.eos() {
+        while ! stream.eos().unwrap() {
             sum_chars += stream.read(&mut buf).unwrap();
         }
         assert_eq!(sum_chars, s.len());
@@ -75,7 +89,7 @@ mod tests {
         xstr.append_from_slice(s);
         sum_chars = 0;
         stream = XStrStream::open(xstr);
-        while ! stream.eos() {
+        while ! stream.eos().unwrap() {
             sum_chars += stream.read(&mut buf).unwrap();
         }
         assert_eq!(sum_chars, 2 * s.len());

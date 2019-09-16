@@ -1,18 +1,23 @@
 use std::cmp;
+use crate::xstring::XString;
 use crate::xstring::XStrRanker;
+use crate::xstream::XStream;
 use crate::alphabet::Alphabet;
 
 
-fn find_minimisers<C>(s: &[C], w: usize, k:usize, ranker: &impl XStrRanker<CharType=C> ) -> Option<Vec<usize>> 
-where C : Copy + Eq
+fn find_minimisers<C>(s: impl XStream<CharType=C>, w: usize, k:usize, ranker: &impl XStrRanker<CharType=C> ) -> Option<Vec<usize>> 
+where C : Copy + Default + Eq
 {
+    let mut window = XString::repeat(w+k-1, C::default());
+    let mut wlen = 0;
 
-    let n = s.len();
-    if n < k || w == 0 {
+    wlen = s.read(&mut window).unwrap();
+    if wlen < k || w == 0 {
         // no kmer
         return None; 
     }
-    
+    window.truncate(wlen);
+
     // circular buffer to store current window kmer ranks
     let mut buf:Vec<usize> = vec![];
     let mut buf_start = 0;
@@ -26,20 +31,35 @@ where C : Copy + Eq
     let mut pos_rank;
     // process initial window
     println!("Processing initial window");
-    for j in 0..=cmp::min(w-1, n-k) {
-        pos_rank = ranker.rank(&s[j..j+k]);
+    for j in 0..=cmp::min(w-1, wlen-k) {
+        pos_rank = ranker.rank(&window[j..j+k]);
         buf.push(pos_rank);
         if pos_rank <= last_min_rank { // (!) <=
             last_min_rank = pos_rank;
             last_min_pos = j;
         }      
     }
-    for j in 0..=cmp::min(w-1, n-k) {
+    for j in 0..=cmp::min(w-1, wlen-k) {
         if buf[j] == last_min_rank {
             occ.push(j);
         }
     }
     // process subsequent windows, if any
+    while true {
+        if s.eos().unwrap() {
+            window.remove(0);
+            wlen -= 1;
+        }
+        else {
+            let c = s.get().unwrap();
+            assert!(!c.is_none());
+            window.rotate_left(1);
+            window[wlen-1] = c.unwrap();
+        }
+
+
+
+
     if n > (w+k-1) {
         assert_eq!(buf.len(), w);
         // current window starts at position i
@@ -89,6 +109,7 @@ where C : Copy + Eq
                 last_min_pos -= 1 ;
             }
         }
+    }
     }
     Some(occ)
 }

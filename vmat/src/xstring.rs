@@ -7,19 +7,30 @@ use std::slice::SliceIndex;
 use crate::alphabet::Alphabet;
 
 pub struct XString<C>
-where C: Copy
+where C: Copy + Default
 {
     v: Vec<C>,
 }
 
 impl<C> XString<C> 
-where C: Copy
+where C: Copy + Default 
 { 
     pub fn new() -> Self {
         XString {
             v: Vec::new()
         }
     }
+    
+    pub fn repeat(len: usize, chr: C) -> Self {
+        let mut ret = XString {
+            v: Vec::with_capacity(len)
+        };
+        for _i in 0..len {
+            ret.v.push(chr);
+        }
+        ret
+    }
+
 
     pub fn len(&self) -> usize {
         self.v.len()
@@ -33,10 +44,21 @@ where C: Copy
         self.v.push(value);
     }
 
+    pub fn pop(&mut self) -> Option<C> {
+        self.v.pop()
+    }
+    
+    pub fn remove(&mut self, index: usize)  -> C {
+        self.v.remove(index)
+    }
+
     pub fn append_from_slice(&mut self, suff: &[C]) {
         self.v.extend_from_slice(suff);
     }
-    
+
+    pub fn truncate(&mut self, len:usize) {
+        self.v.truncate(len);
+    } 
 }
 
 impl<C, I> Index<I> for XString<C>
