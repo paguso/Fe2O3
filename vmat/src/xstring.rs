@@ -7,11 +7,13 @@ use std::slice::SliceIndex;
 use crate::alphabet::Alphabet;
 
 pub struct XString<C>
+where C: Copy
 {
     v: Vec<C>,
 }
 
 impl<C> XString<C> 
+where C: Copy
 { 
     pub fn new() -> Self {
         XString {
@@ -30,11 +32,16 @@ impl<C> XString<C>
     pub fn push(&mut self, value: C) {
         self.v.push(value);
     }
+
+    pub fn append_from_slice(&mut self, suff: &[C]) {
+        self.v.extend_from_slice(suff);
+    }
     
 }
 
 impl<C, I> Index<I> for XString<C>
 where
+    C: Copy,
     I: SliceIndex<[C]>,
 {
     type Output = <I as SliceIndex<[C]>>::Output;
@@ -46,6 +53,7 @@ where
 
 impl<C, I> IndexMut<I> for XString<C> 
 where 
+    C: Copy,
     I: SliceIndex<[C]>
 {
     fn index_mut<'a>(&'a mut self, index: I) -> &'a mut Self::Output {
@@ -53,14 +61,18 @@ where
     }
 }
 
-impl<C> Deref for XString<C> {
+impl<C> Deref for XString<C> 
+where C: Copy
+{
     type Target = [C];
     fn deref (&self) -> &Self::Target {
         &self.v
     }
 }
 
-impl<C> DerefMut for XString<C> {
+impl<C> DerefMut for XString<C> 
+where C: Copy
+{
     fn deref_mut (&mut self) -> &mut Self::Target {
         &mut self.v
     }
