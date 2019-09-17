@@ -22,13 +22,9 @@ where C: Copy + Default
     }
     
     pub fn repeat(len: usize, chr: C) -> Self {
-        let mut ret = XString {
-            v: Vec::with_capacity(len)
-        };
-        for _i in 0..len {
-            ret.v.push(chr);
+        XString {
+            v: vec![chr; len] 
         }
-        ret
     }
 
 
@@ -63,7 +59,7 @@ where C: Copy + Default
 
 impl<C, I> Index<I> for XString<C>
 where
-    C: Copy,
+    C: Copy + Default,
     I: SliceIndex<[C]>,
 {
     type Output = <I as SliceIndex<[C]>>::Output;
@@ -75,7 +71,7 @@ where
 
 impl<C, I> IndexMut<I> for XString<C> 
 where 
-    C: Copy,
+    C: Copy + Default, 
     I: SliceIndex<[C]>
 {
     fn index_mut<'a>(&'a mut self, index: I) -> &'a mut Self::Output {
@@ -84,7 +80,7 @@ where
 }
 
 impl<C> Deref for XString<C> 
-where C: Copy
+where C: Copy + Default, 
 {
     type Target = [C];
     fn deref (&self) -> &Self::Target {
@@ -93,7 +89,7 @@ where C: Copy
 }
 
 impl<C> DerefMut for XString<C> 
-where C: Copy
+where C: Copy + Default,
 {
     fn deref_mut (&mut self) -> &mut Self::Target {
         &mut self.v
