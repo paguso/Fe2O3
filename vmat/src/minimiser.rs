@@ -52,12 +52,10 @@ where C : Copy + Default + Eq
         }
         else {
             let c = s.get().unwrap();
-            assert!(!c.is_none());
+            assert!(c.is_none())   ;
             window.rotate_left(1);
             window[wlen-1] = c.unwrap();
         }
-
-
 
 
     if n > (w+k-1) {
