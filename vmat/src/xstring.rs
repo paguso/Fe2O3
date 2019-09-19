@@ -7,13 +7,13 @@ use std::slice::SliceIndex;
 use crate::alphabet::Alphabet;
 
 pub struct XString<C>
-where C: Copy + Default
+where C: Copy 
 {
     v: Vec<C>,
 }
 
 impl<C> XString<C> 
-where C: Copy + Default 
+where C: Copy 
 { 
     pub fn new() -> Self {
         XString {
@@ -26,7 +26,6 @@ where C: Copy + Default
             v: vec![chr; len] 
         }
     }
-
 
     pub fn len(&self) -> usize {
         self.v.len()
@@ -59,7 +58,7 @@ where C: Copy + Default
 
 impl<C, I> Index<I> for XString<C>
 where
-    C: Copy + Default,
+    C: Copy, 
     I: SliceIndex<[C]>,
 {
     type Output = <I as SliceIndex<[C]>>::Output;
@@ -71,7 +70,7 @@ where
 
 impl<C, I> IndexMut<I> for XString<C> 
 where 
-    C: Copy + Default, 
+    C: Copy, 
     I: SliceIndex<[C]>
 {
     fn index_mut<'a>(&'a mut self, index: I) -> &'a mut Self::Output {
@@ -80,7 +79,7 @@ where
 }
 
 impl<C> Deref for XString<C> 
-where C: Copy + Default, 
+where C: Copy 
 {
     type Target = [C];
     fn deref (&self) -> &Self::Target {
@@ -89,7 +88,7 @@ where C: Copy + Default,
 }
 
 impl<C> DerefMut for XString<C> 
-where C: Copy + Default,
+where C: Copy 
 {
     fn deref_mut (&mut self) -> &mut Self::Target {
         &mut self.v
@@ -100,7 +99,7 @@ where C: Copy + Default,
 
 pub trait XStrRanker {
     type  CharType;
-    fn rank(&self, s: &[Self::CharType]) -> usize; 
+    fn rank(&self, s: &[Self::CharType]) -> u64; 
 }
 
 pub struct XStrLexRanker<C, A>
@@ -124,10 +123,10 @@ where C: Eq,
       A: Alphabet<CharType=C>
 {
     type CharType = C;
-    fn rank(&self, s: &[Self::CharType]) -> usize {
-        let mut r:usize = 0;
+    fn rank(&self, s: &[Self::CharType]) -> u64 {
+        let mut r:u64 = 0;
         for c in s {
-            r = (r * self.ab.len()) + self.ab.ord(c).expect("Char not in alphabet");
+            r = (r * self.ab.len() as u64) + self.ab.ord(c).expect("Char not in alphabet") as u64;
         }
         r
     }
@@ -170,28 +169,6 @@ mod tests {
         slice.len()
     }
 
-    /*
-    #[test]
-    fn test_xstr_substring() {
-        let mut xstr:XString<u8> = XString::new();
-        assert_eq!(xstr.len(), 0);
-        let n:usize = 10;
-        for i in 0..n {
-            xstr.push(i as u8);
-        }
-        assert_eq!(xstr.len(), n);
-        let begin = 1;
-        let end = 5;
-        let s = xstr.substring(begin, end);
-        assert_eq!(s.len(), end-begin);
-        for i in 0..s.len() {
-            assert_eq!(xstr[begin+i], s[i]);
-        }
-        assert_eq!(len_deref(&xstr), n);
-        assert_eq!(len_deref(&s), end-begin);
-    }
-    */
-    
     #[test]
     fn test_xstr_slice() {
         let mut xstr:XString<u8> = XString::new();

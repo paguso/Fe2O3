@@ -1,5 +1,6 @@
 mod alphabet;
 mod minimiser;
-mod minmaxstack;
+mod mstack;
+mod mqueue;
 mod xstring;
 mod xstream;
