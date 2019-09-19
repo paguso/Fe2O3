@@ -1,3 +1,5 @@
+use crate::alphabet::Character;
+
 use std::cmp;
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
@@ -20,7 +22,7 @@ where C: Copy
             v: Vec::new()
         }
     }
-    
+
     pub fn repeat(len: usize, chr: C) -> Self {
         XString {
             v: vec![chr; len] 
@@ -55,6 +57,28 @@ where C: Copy
         self.v.truncate(len);
     } 
 }
+
+impl<C> From<&[C]> for XString<C> 
+where C: Copy
+{
+    fn from (src: &[C]) -> Self {
+        XString {
+            v: Vec::from(src)
+        }
+    }
+} 
+
+
+impl<C> From<Vec<C>> for XString<C> 
+where C: Copy
+{
+    fn from (src: Vec<C>) -> Self {
+        XString {
+            v: src
+        }
+    }
+} 
+
 
 impl<C, I> Index<I> for XString<C>
 where
@@ -103,14 +127,14 @@ pub trait XStrRanker {
 }
 
 pub struct XStrLexRanker<C, A>
-where C: Eq,  
+where C: Character,  
       A: Alphabet<CharType=C>
 {
     ab : Rc<A>
 }
 
 impl<C, A> XStrLexRanker<C, A> 
-where C: Eq,  
+where C: Character,  
       A: Alphabet<CharType=C>
 {
     pub fn new(ab: Rc<A>) -> Self {
@@ -119,7 +143,7 @@ where C: Eq,
 }
 
 impl<C, A> XStrRanker for XStrLexRanker<C, A> 
-where C: Eq,  
+where C: Character,  
       A: Alphabet<CharType=C>
 {
     type CharType = C;

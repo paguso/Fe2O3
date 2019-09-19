@@ -14,7 +14,7 @@ pub trait XStream {
     fn get(&mut self) -> Result<Option<Self::CharType>, &str>;
 }
 
-struct XStrStream<C> 
+pub struct XStrStream<C> 
 where C: Copy + Default
 {
     xstr: XString<C>, 
@@ -24,14 +24,14 @@ where C: Copy + Default
 impl<C> XStrStream<C> 
 where C: Copy + Default
 {
-    fn open(xstr: XString<C>) -> Self {
+    pub fn open(xstr: XString<C>) -> Self {
         XStrStream {
             xstr, 
             cur: 0
         }
     }
 
-    fn close(self) -> XString<C> {
+    pub fn close(self) -> XString<C> {
         self.xstr
     }
 

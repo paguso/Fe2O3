@@ -7,18 +7,24 @@ use crate::mqueue::MQueue;
 
 
 fn find_minimisers<C>(s: &mut impl XStream<CharType=C>, w: usize, k:usize, ranker: &impl XStrRanker<CharType=C> ) -> Option<Vec<usize>> 
-where C : Copy + Default + Eq
+where C : Copy + Eq
 {
     
-    let mut window = XString::repeat(w+k-1, C::default());
-    let mut wlen;
-
-    wlen = s.read(&mut window).unwrap();
+    let mut window = XString::new();
+    let mut wlen = 0;
+    
+    while wlen <= w+k-1 {
+        match s.get() {
+            Ok(Some(c)) => {
+                 window.push(c);
+                 wlen += 1;
+            },
+            _ => break
+        }
+    }
     if wlen < k || w == 0 {
-        // no kmer
         return None; 
     }
-    window.truncate(wlen);
 
     let mut wscores: MQueue<(u64,usize)> = MQueue::new_min();
     // process first window
@@ -37,6 +43,7 @@ where C : Copy + Default + Eq
             Ok(Some(c)) => {
                 window.rotate_left(1);
                 window[k-1] = c;
+                wscores.pop();
                 wscores.push( (ranker.rank(&window[wlen-k..]) , pos) );
                 pos += 1;
             },
@@ -55,29 +62,22 @@ mod tests {
     use super::*;
     use std::rc::Rc;
     use crate::alphabet::DNAAlphabet;
-    use crate::xstring::XString;
-    use crate::xstring::XStrLexRanker;
+    use crate::xstring::{XString, XStrLexRanker};
+    use crate::xstream::XStrStream;
 
     #[test]
     fn test_find_minimisers() {
-        /*
         let dna_ab = DNAAlphabet::new();
         let w = 4;
         let k = 5;
         let ranker = XStrLexRanker::new(Rc::new(dna_ab));
-        let rs = String::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt");
-        let mut s:XString<char> = XString::new();
-        for c in rs.chars() {
-            s.push(c);
+        let mut src:XString<u8> = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
+        let mut stream = XStrStream::open(src); 
+        let minimisers =  find_minimisers(&mut stream, w, k, &ranker).unwrap();
+        src = stream.close();
+        for j in &minimisers {
+            println!("minimiser found at position {}",j);
+            assert_eq!(&src[..k], &src[*j..*j+k]);
         }
-        match find_minimisers(&s, w, k, &ranker) {
-            Some(occ) => {
-                for j in &occ {
-                    assert_eq!(&s[..k], &s[*j..*j+k]);
-                }
-            },
-            None => assert!(false, "No minimisers found. Should have found some."),
-        }
-        */
     }
 }
