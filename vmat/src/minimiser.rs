@@ -67,18 +67,23 @@ fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[us
 where 
     C: Character + Hash, 
 {
-    let mut sorted_k = vec![k_vals.len(); 0usize];
+    let mut index: HashMap<XString<C>, Vec<usize>> = HashMap::new();
+    
+    if k_vals.len()==0 || w==0 {
+        return  Ok(index);
+    }
+
+    let mut sorted_k = vec![0usize; k_vals.len()];
     sorted_k.copy_from_slice(k_vals);
     sorted_k.sort();
-
-    let mut index: HashMap<XString<C>, Vec<usize>> = HashMap::new();
+    let k_count = sorted_k.len();
+    let k_min = sorted_k[0];
+    let k_max = sorted_k[k_count-1];
 
     let mut window = XString::new();
-    let mut wlen = 0;
+    let mut wlen = 0;    
 
-    
-
-    while wlen <= w + k - 1 {
+    while wlen <= w + k_max - 1 {
         match src.get() {
             Ok(Some(c)) => {
                 window.push(c);
@@ -87,11 +92,12 @@ where
             _ => break,
         }
     }
-    if wlen < k || w == 0 {
-        return None;
+    if wlen < k_min {
+        return Ok(index);
     }
+    
 
-    let mut wscores: MQueue<(u64, usize)> = MQueue::new_min();
+    let mut wscores: Vec<MQueue<(u64, usize)>> = vec![MQueue::new_min(); k_count];
     // process first window
     let mut pos: usize;
     for pos in 0..wlen - k + 1 {
