@@ -1,6 +1,7 @@
 use crate::mstack::MStack;
 use std::cmp::Ordering;
 
+#[derive(Clone)]
 pub struct MQueue<T>
 where
     T: Ord,

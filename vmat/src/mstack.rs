@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 
+#[derive(Clone)]
 pub struct MStack<T>
 where
     T: Ord,

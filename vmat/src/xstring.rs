@@ -8,6 +8,7 @@ use std::slice::SliceIndex;
 
 use crate::alphabet::Alphabet;
 
+#[derive(PartialEq, Eq, Hash)]
 pub struct XString<C>
 where
     C: Character,
@@ -114,6 +115,7 @@ where
         &mut self.v
     }
 }
+
 
 pub trait XStrRanker {
     type CharType;
