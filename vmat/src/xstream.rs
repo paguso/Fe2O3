@@ -1,17 +1,18 @@
 use crate::alphabet::{Alphabet, Character};
 use crate::xstring::XString;
+use std::io;
 
 pub trait XStream {
     type CharType;
 
     /// Returns whether the End OF Stream is reached
-    fn eos(&self) -> Result<bool, &str>;
+    fn eos(&self) -> Result<bool, io::Error>;
 
     /// Reads from stream into the given buffer.
     /// Returns the number of items (chars) read.
-    fn read(&mut self, buf: &mut [Self::CharType]) -> Result<usize, &str>;
+    fn read(&mut self, buf: &mut [Self::CharType]) -> Result<usize, io::Error>;
 
-    fn get(&mut self) -> Result<Option<Self::CharType>, &str>;
+    fn get(&mut self) -> Result<Option<Self::CharType>, io::Error>;
 }
 
 pub struct XStrStream<C>
@@ -41,7 +42,7 @@ where
 {
     type CharType = C;
 
-    fn get(&mut self) -> Result<Option<C>, &str> {
+    fn get(&mut self) -> Result<Option<C>, io::Error> {
         if self.cur < self.xstr.len() {
             self.cur += 1;
             Ok(Some(self.xstr[self.cur - 1]))
@@ -50,14 +51,14 @@ where
         }
     }
 
-    fn read(&mut self, buf: &mut [C]) -> Result<usize, &str> {
+    fn read(&mut self, buf: &mut [C]) -> Result<usize, io::Error> {
         let nitems = std::cmp::min(buf.len(), self.xstr.len() - self.cur);
         buf[..nitems].copy_from_slice(&self.xstr[self.cur..self.cur + nitems]);
         self.cur += nitems;
         Ok(nitems)
     }
 
-    fn eos(&self) -> Result<bool, &str> {
+    fn eos(&self) -> Result<bool, io::Error> {
         Ok(self.cur >= self.xstr.len())
     }
 }
