@@ -83,6 +83,7 @@ where
     let mut window = XString::new();
     let mut wlen = 0;    
 
+    // read in first window
     while wlen <= w + k_max - 1 {
         match src.get() {
             Ok(Some(c)) => {
