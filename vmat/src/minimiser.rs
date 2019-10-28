@@ -5,6 +5,8 @@ use crate::xstring::XStrRanker;
 use crate::xstring::XString;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::io;
+use std::cmp::{min, max};
 
 
 fn find_minimisers<C>(
@@ -63,7 +65,7 @@ where
 }
 
 
-fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[usize], ranker: &impl XStrRanker<CharType=C>) -> Result<HashMap<XString<C>, Vec<usize>>, std::io::Error> 
+fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[usize], ranker: &impl XStrRanker<CharType=C>) -> Result<HashMap<XString<C>, Vec<usize>>, io::Error> 
 where 
     C: Character + Hash, 
 {
@@ -85,43 +87,58 @@ where
 
     // read in first window
     while wlen <= w + k_max - 1 {
-        match src.get() {
-            Ok(Some(c)) => {
+        match src.get()? {
+            Some(c) => {
                 window.push(c);
                 wlen += 1;
             }
-            _ => break,
+            None => break,
         }
     }
     if wlen < k_min {
         return Ok(index);
     }
-    
 
     let mut wscores: Vec<MQueue<(u64, usize)>> = vec![MQueue::new_min(); k_count];
     // process first window
     let mut pos: usize;
-    for pos in 0..wlen - k + 1 {
-        wscores.push((ranker.rank(&window[pos..pos + k]), pos));
+    for pos in 0..min(w, wlen-k_min+1) {
+        for (i,k) in sorted_k.iter().enumerate() {
+            if pos + k < wlen {
+                wscores[i].push((ranker.rank(&window[pos..pos + k]), pos));
+            }
+        }
     }
 
-    let mut minimisers: Vec<usize> = vec![];
-    let mut wmin;
-    pos = wlen - k + 1;
-    while wlen >= k {
-        wmin = wscores.xtr().unwrap();
-        minimisers.push(wmin.1);
-        match s.get() {
-            Ok(Some(c)) => {
-                window.rotate_left(1);
-                window[k - 1] = c;
-                wscores.pop();
-                wscores.push((ranker.rank(&window[wlen - k..]), pos));
-                pos += 1;
+    let mut w_end = wlen;
+    while true {
+        for (i,k) in sorted_k.iter().enumerate()  {
+            if !wscores[i].is_empty() {
+                let wmin = wscores[i].xtr().unwrap();
+                let kmer = XString::from(&window[wmin.1..wmin.1+k]);
+                match index.get_mut(&kmer) {
+                    Some(occ) => {occ.push(wmin.1);},
+                    None => {index.insert(kmer, vec![wmin.1]);}
+                }
             }
-            _ => {
+        }       
+        match src.get()? {
+            Some(c) => {
+                window.rotate_left(1);
+                window[wlen - 1] = c;
+                for (i,k) in sorted_k.iter().enumerate() {
+                    if !wscores[i].is_empty() {
+                        wscores[i].pop();
+                        wscores[i].push((ranker.rank(&window[wlen - k..]), pos));
+                    }
+                }
+            }
+            None => {
                 window.remove(0);
                 wlen -= 1;
+                if wlen < k_min {
+                    break;
+                }
             }
         }
     }
