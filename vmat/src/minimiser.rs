@@ -3,11 +3,10 @@ use crate::mqueue::MQueue;
 use crate::xstream::XStream;
 use crate::xstring::XStrRanker;
 use crate::xstring::XString;
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::io;
-use std::cmp::{min, max};
-
 
 fn find_minimisers<C>(
     s: &mut impl XStream<CharType = C>,
@@ -64,13 +63,13 @@ where
     Some(minimisers)
 }
 
-
-fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[usize], ranker: &impl XStrRanker<CharType=C>) -> Result<HashMap<XString<C>, Vec<usize>>, io::Error> 
-where 
-    C: Character + Hash, 
+/*
+fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[usize], ranker: &impl XStrRanker<CharType=C>) -> Result<HashMap<XString<C>, Vec<usize>>, io::Error>
+where
+    C: Character + Hash,
 {
     let mut index: HashMap<XString<C>, Vec<usize>> = HashMap::new();
-    
+
     if k_vals.len()==0 || w==0 {
         return  Ok(index);
     }
@@ -83,7 +82,7 @@ where
     let k_max = sorted_k[k_count-1];
 
     let mut window = XString::new();
-    let mut wlen = 0;    
+    let mut wlen = 0;
 
     // read in first window
     while wlen <= w + k_max - 1 {
@@ -121,7 +120,7 @@ where
                     None => {index.insert(kmer, vec![wmin.1]);}
                 }
             }
-        }       
+        }
         match src.get()? {
             Some(c) => {
                 window.rotate_left(1);
@@ -145,8 +144,7 @@ where
 
     Ok(index)
 }
-
-
+*/
 
 #[cfg(test)]
 mod tests {

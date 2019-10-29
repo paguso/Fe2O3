@@ -116,7 +116,6 @@ where
     }
 }
 
-
 pub trait XStrRanker {
     type CharType;
     fn rank(&self, s: &[Self::CharType]) -> u64;

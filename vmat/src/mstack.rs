@@ -1,5 +1,42 @@
 use std::cmp::Ordering;
 
+pub struct MStackXtrIter<'a, T>
+where
+    T: Ord,
+{
+    src: &'a MStack<T>,
+    index: usize,
+}
+
+impl<'a, T> Iterator for MStackXtrIter<'a, T>
+where
+    T: Ord,
+{
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == 0 {
+            return None;
+        }
+        if self.index == self.src.len() {
+            if self.src.stack[self.index - 1].0
+                == self.src.stack[self.src.stack[self.index - 1].1].0
+            {
+                // top is min/max
+                self.index -= 1;
+            } else {
+                self.index = self.src.stack[self.src.len() - 1].1;
+            }
+            return Some(&self.src.stack[self.index].0);
+        } else if self.src.stack[self.index].1 != self.index {
+            self.index = self.src.stack[self.index].1;
+            return Some(&self.src.stack[self.index].0);
+        } else {
+            return None;
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct MStack<T>
 where
@@ -39,6 +76,8 @@ where
         let l = self.len();
         if l == 0 || item.cmp(&self.stack[self.stack[l - 1].1].0) == self.crit {
             self.stack.push((item, l));
+        } else if self.stack[self.stack[l - 1].1].0 == self.stack[l - 1].0 {
+            self.stack.push((item, l - 1));
         } else {
             self.stack.push((item, self.stack[l - 1].1));
         }
@@ -56,6 +95,13 @@ where
             Some(&self.stack[self.stack[self.stack.len() - 1].1].0)
         } else {
             None
+        }
+    }
+
+    pub fn all_xtr_iter<'a>(&'a self) -> MStackXtrIter<'a, T> {
+        MStackXtrIter {
+            src: &self,
+            index: self.len(),
         }
     }
 }
@@ -105,5 +151,36 @@ mod tests {
         assert_eq!(*stack.xtr().unwrap(), 10 as u32);
         stack.pop();
         assert_eq!(stack.len(), 0);
+    }
+
+    #[test]
+    fn test_all_xstr() {
+        let mut stack: MStack<u32> = MStack::new_min();
+        for m in stack.all_xtr_iter() {
+            panic!("min stack is empty");
+        }
+        stack.push(6);
+        stack.push(5);
+        stack.push(7);
+        stack.push(8);
+        stack.push(5);
+        stack.push(8);
+        stack.push(5);
+        stack.push(8);
+        let mut count = 0;
+        for m in stack.all_xtr_iter() {
+            assert_eq!(*m, 5 as u32);
+            count += 1;
+        }
+        assert_eq!(count, 3);
+        stack.pop();
+        stack.pop();
+        stack.pop();
+        count = 0;
+        for m in stack.all_xtr_iter() {
+            assert_eq!(*m, 5 as u32);
+            count += 1;
+        }
+        assert_eq!(count, 2);
     }
 }

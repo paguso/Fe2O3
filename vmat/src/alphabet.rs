@@ -76,7 +76,6 @@ pub struct DNAAlphabet {
 }
 
 impl DNAAlphabet {
-    
     const a: u8 = b'a';
     const c: u8 = b'c';
     const g: u8 = b'g';
