@@ -1,34 +1,36 @@
 use crate::mstack::MStack;
-use std::collections::VecDeque;
 use std::cmp::Ordering;
+use std::collections::VecDeque;
 
-
-pub struct MQueueXtrIter<'a, T> 
-where T: Ord 
+pub struct MQueueXtrIter<'a, T>
+where
+    T: Ord,
 {
     src: &'a MQueue<T>,
     index: usize,
 }
 
-
-impl<'a, T> Iterator for  MQueueXtrIter<'a, T>  
-where T: Ord
+impl<'a, T> Iterator for MQueueXtrIter<'a, T>
+where
+    T: Ord,
 {
-    type Item: &'a T;
+    type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.src.len()==0 {
-            return None
-        }
-        else if self.index == 0 {
+        if self.index < self.src.minmax.len()
+            && (self.index == 0
+                || self.src.queue[self.src.minmax[self.index - 1] - self.src.popped]
+                    == self.src.queue[self.src.minmax[self.index] - self.src.popped])
+        {
             self.index += 1;
-            return self.src.queue.get(self.src.minmax.get(0).unwrap() - self.src.popped); 
+            return self
+                .src
+                .queue
+                .get(self.src.minmax[self.index - 1] - self.src.popped);
+        } else {
+            return None;
         }
-        else if self.index >= self.src.minmax.len() || self.src.get(self.
-
     }
-
 }
-
 
 #[derive(Clone)]
 pub struct MQueue<T>
@@ -73,7 +75,9 @@ where
 
     pub fn push(&mut self, item: T) {
         let l = self.len();
-        while self.minmax.len() > 0 && item.cmp(&self.queue[self.minmax.back().unwrap()-self.popped]) == self.crit {
+        while self.minmax.len() > 0
+            && item.cmp(&self.queue[self.minmax.back().unwrap() - self.popped]) == self.crit
+        {
             self.minmax.pop_back();
         }
         self.queue.push_back(item);
@@ -94,11 +98,11 @@ where
     pub fn xtr(&self) -> Option<&T> {
         if self.is_empty() {
             return None;
-        }
-        else {
-            return self.queue.get(self.minmax.front().unwrap() - self.popped);   
+        } else {
+            return self.queue.get(self.minmax.front().unwrap() - self.popped);
         }
     }
+
 }
 
 #[cfg(test)]
