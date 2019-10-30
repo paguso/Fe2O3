@@ -118,9 +118,22 @@ where C: Character
     // maximum necessary window buffer length
     let max_wlen = w.iter().zip(k.iter()).map(|(a,b)| a+b).max().unwrap() - 1;
     
+    let mut window:XString<C> = XString::new();
+    let mut wlen = 0;
 
-
-    let window:XString<C> = XString::new();
+    //read in first window
+    while wlen < max_wlen {
+        match s.get() {
+            Ok(Some(c)) => {
+                window.push(c);
+                wlen += 1;
+            }
+            _ => break,
+        }
+    }
+    if wlen < k || w == 0 {
+        return None;
+    }
     s.read(buf: &mut [Self::CharType])
     
 
