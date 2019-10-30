@@ -103,6 +103,13 @@ where
         }
     }
 
+    pub fn xtr_iter<'a> (&'a self) -> MQueueXtrIter<'a, T> {
+        MQueueXtrIter {
+            src: self,
+            index: 0,
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -149,6 +156,60 @@ mod tests {
         assert_eq!(*queue.xtr().unwrap(), 40 as u32);
         queue.push(55);
         assert_eq!(*queue.xtr().unwrap(), 55 as u32);
+    }
+
+    #[test]
+    fn test_xtr_iter() {
+        let mut queue:MQueue<u32> =  MQueue::new_min();
+        queue.push(8);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(5);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(8);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(9);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(7);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(5);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(8);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        queue.push(5);
+        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
+        let mut c = 0;
+        for m in queue.xtr_iter() {
+            assert_eq!(*m, 5);
+            c += 1;
+        }
+        assert_eq!(c, 3);
+        queue.pop();
+        queue.pop();
+        c = 0;
+        for m in queue.xtr_iter() {
+            assert_eq!(*m, 5);
+            c += 1;
+        }
+        assert_eq!(c, 2);
+        queue.pop();
+        queue.pop();
+        queue.pop();
+        queue.pop();
+        c = 0;
+        for m in queue.xtr_iter() {
+            assert_eq!(*m, 5);
+            c += 1;
+        }
+        assert_eq!(c, 1);
+        queue.pop();
+        queue.pop();
+        queue.push(8);
+        c = 0;
+        for m in queue.xtr_iter() {
+            assert_eq!(*m, 8);
+            c += 1;
+        }
+        assert_eq!(c, 1);
     }
 
 }
