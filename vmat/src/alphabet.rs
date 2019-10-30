@@ -154,8 +154,8 @@ mod tests {
     #[test]
     fn test_dna_ab_index() {
         let ab = DNAAlphabet::new();
-        assert_eq!(ab[0], 'a' as u8);
-        assert_eq!(ab[1], 'c' as u8);
+        assert_eq!(ab[0], DNAAlphabet::a);
+        assert_eq!(ab[1], DNAAlphabet::c);
     }
 
     #[test]

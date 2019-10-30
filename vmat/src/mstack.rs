@@ -98,7 +98,7 @@ where
         }
     }
 
-    pub fn all_xtr_iter<'a>(&'a self) -> MStackXtrIter<'a, T> {
+    pub fn xtr_iter<'a>(&'a self) -> MStackXtrIter<'a, T> {
         MStackXtrIter {
             src: &self,
             index: self.len(),
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn test_all_xstr() {
         let mut stack: MStack<u32> = MStack::new_min();
-        for m in stack.all_xtr_iter() {
+        for m in stack.xtr_iter() {
             panic!("min stack is empty");
         }
         stack.push(6);
@@ -168,7 +168,7 @@ mod tests {
         stack.push(5);
         stack.push(8);
         let mut count = 0;
-        for m in stack.all_xtr_iter() {
+        for m in stack.xtr_iter() {
             assert_eq!(*m, 5 as u32);
             count += 1;
         }
@@ -177,7 +177,7 @@ mod tests {
         stack.pop();
         stack.pop();
         count = 0;
-        for m in stack.all_xtr_iter() {
+        for m in stack.xtr_iter() {
             assert_eq!(*m, 5 as u32);
             count += 1;
         }

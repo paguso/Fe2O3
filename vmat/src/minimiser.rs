@@ -4,7 +4,7 @@ use crate::xstream::XStream;
 use crate::xstring::XStrRanker;
 use crate::xstring::XString;
 use std::cmp::{max, min};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 use std::io;
 
@@ -18,9 +18,10 @@ where
     C: Character,
 {
     let mut window = XString::new();
-    let mut wlen = 0;
+    let mut wlen:usize = 0;
+    let mut wpos:usize = 0;
 
-    while wlen <= w + k - 1 {
+    while wlen < w + k - 1 {
         match s.get() {
             Ok(Some(c)) => {
                 window.push(c);
@@ -41,18 +42,25 @@ where
     }
 
     let mut minimisers: Vec<usize> = vec![];
-    let mut wmin;
-    pos = wlen - k + 1;
+    pos = wlen - k + 1; // last kmer pos
+    let mut wmin_mask:VecDeque<bool> = vec![false; w].into_iter().collect();
     while wlen >= k {
-        wmin = wscores.xtr().unwrap();
-        minimisers.push(wmin.1);
+        for wmin in wscores.xtr_iter() {
+            if !wmin_mask[wmin.1 - wpos] {
+                minimisers.push(wmin.1);
+                wmin_mask[wmin.1 - wpos] = true;
+            }
+        }
         match s.get() {
             Ok(Some(c)) => {
                 window.rotate_left(1);
-                window[k - 1] = c;
+                window[wlen - 1] = c;
+                wmin_mask.rotate_left(1);
+                wmin_mask[w-1] = false;
                 wscores.pop();
                 wscores.push((ranker.rank(&window[wlen - k..]), pos));
                 pos += 1;
+                wpos += 1;
             }
             _ => {
                 window.remove(0);
@@ -62,6 +70,66 @@ where
     }
     Some(minimisers)
 }
+
+
+type TMmRank = u64;
+
+pub struct MmIndex {
+    k: Vec<u8>,
+    w: Vec<u8>,
+    tables: Vec<HashMap<TMmRank, Vec<usize>>>,
+}
+
+
+impl MmIndex {
+    fn new(k:Vec<u8>, w:Vec<u8>) -> MmIndex {
+        let l = w.len();
+        assert_eq!(l, k.len());
+        MmIndex{
+            k: k,
+            w: w,
+            tables: vec![HashMap::new();  l],
+        }
+    }
+
+    fn insert(&mut self, index: usize, mmrk: TMmRank,  pos: usize)  {
+        if !self.tables[index].contains_key(&mmrk) {
+            self.tables[index].insert(mmrk, vec![pos]);
+        }
+        else {
+            self.tables[index].get_mut(&mmrk).unwrap().push(pos);
+        }
+    }
+
+    fn get(&self, index: usize, mmrk: TMmRank) -> Option<&Vec<usize>> {
+        self.tables[index].get(&mmrk)
+    }
+
+}
+
+
+fn index_minimisers<C> (s: &mut impl XStream<CharType=C>, w: Vec<u8>, k: Vec<u8>) -> Result<MmIndex, io::Error> 
+where C: Character
+{
+    let nidx = w.len();
+    let mut mmindex = MmIndex::new(k, w);
+    let mut wscores:Vec<MQueue<(TMmRank, usize)>> = vec![MQueue::new_min(); nidx];
+
+    // maximum necessary window buffer length
+    let max_wlen = w.iter().zip(k.iter()).map(|(a,b)| a+b).max().unwrap() - 1;
+    
+
+
+    let window:XString<C> = XString::new();
+    s.read(buf: &mut [Self::CharType])
+    
+
+
+
+    Ok(mmindex)
+}
+
+
 
 /*
 fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[usize], ranker: &impl XStrRanker<CharType=C>) -> Result<HashMap<XString<C>, Vec<usize>>, io::Error>
