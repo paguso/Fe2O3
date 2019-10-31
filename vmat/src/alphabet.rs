@@ -173,5 +173,4 @@ mod tests {
         assert_eq!(ab.ord(&('g' as u8),).unwrap(), 2);
         assert_eq!(ab.ord(&('_' as u8)), None);
     }
-
 }

@@ -202,5 +202,4 @@ mod tests {
             let slice = &xstr[i..i + k];
         }
     }
-
 }

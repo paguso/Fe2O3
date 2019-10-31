@@ -103,13 +103,12 @@ where
         }
     }
 
-    pub fn xtr_iter<'a> (&'a self) -> MQueueXtrIter<'a, T> {
+    pub fn xtr_iter<'a>(&'a self) -> MQueueXtrIter<'a, T> {
         MQueueXtrIter {
             src: self,
             index: 0,
         }
     }
-
 }
 
 #[cfg(test)]
@@ -160,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_xtr_iter() {
-        let mut queue:MQueue<u32> =  MQueue::new_min();
+        let mut queue: MQueue<u32> = MQueue::new_min();
         queue.push(8);
         println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(5);
@@ -211,5 +210,4 @@ mod tests {
         }
         assert_eq!(c, 1);
     }
-
 }

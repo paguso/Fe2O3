@@ -91,5 +91,4 @@ mod tests {
         assert_eq!(sum_chars, 2 * s.len());
         stream.close();
     }
-
 }
