@@ -75,14 +75,14 @@ where
 type TMmRank = u64;
 
 pub struct MmIndex {
-    k: Vec<u8>,
-    w: Vec<u8>,
+    k: Vec<usize>,
+    w: Vec<usize>,
     tables: Vec<HashMap<TMmRank, Vec<usize>>>,
 }
 
 
 impl MmIndex {
-    fn new(k:Vec<u8>, w:Vec<u8>) -> MmIndex {
+    fn new(k:Vec<usize>, w:Vec<usize>) -> MmIndex {
         let l = w.len();
         assert_eq!(l, k.len());
         MmIndex{
@@ -101,6 +101,7 @@ impl MmIndex {
         }
     }
 
+
     fn get(&self, index: usize, mmrk: TMmRank) -> Option<&Vec<usize>> {
         self.tables[index].get(&mmrk)
     }
@@ -108,7 +109,7 @@ impl MmIndex {
 }
 
 
-fn index_minimisers<C> (s: &mut impl XStream<CharType=C>, w: Vec<u8>, k: Vec<u8>) -> Result<MmIndex, io::Error> 
+fn index_minimisers<C> (s: &mut impl XStream<CharType=C>, w: Vec<usize>, k: Vec<usize>, ranker: Vec<&impl XStrRanker<CharType=C>>) -> Result<MmIndex, io::Error> 
 where C: Character
 {
     let nidx = w.len();
@@ -120,22 +121,47 @@ where C: Character
     
     let mut window:XString<C> = XString::new();
     let mut wlen = 0;
-
+    let mut pos = 0;
     //read in first window
-    while wlen < max_wlen {
+    while true {
         match s.get() {
             Ok(Some(c)) => {
-                window.push(c);
-                wlen += 1;
+                if pos >= max_wlen {
+                    window.rotate_left(1);
+                    window[max_wlen-1] = c;    
+                }
+                else {
+                    window.push(c);
+                }
+                pos += 1;
             }
             _ => break,
         }
+        for i in 0..nidx {
+            if pos >= k[i] {
+                let (last_mm_rk, last_mm_pos) = 
+                    match wscores[i].xtr() {
+                        Some(lmm) => (lmm.0, lmm.1),
+                        None => (0,0),
+                    };
+                let kmer_rk  = ranker[i].rank(&window[window.len()-k[i]..]);
+                let kmer_pos = pos-k[i]; 
+                wscores[i].push( (kmer_rk, kmer_pos) );
+                if pos > w[i] + k[i] - 1 {
+                    wscores[i].pop();
+                    let (cur_mm_rk, cur_mm_pos) = wscores[i].xtr().unwrap();
+                    if last_mm_rk != *cur_mm_rk { // new minimiser
+                        for &(rk, p) in wscores[i].xtr_iter() {
+                            mmindex.insert(i, rk, p);
+                        }
+                    } else if *cur_mm_rk == kmer_rk { // last kmer is a new occ of same old mm
+                        mmindex.insert(i, kmer_rk, kmer_pos);
+                    }
+                } 
+            }
+        }
+
     }
-    if wlen < k || w == 0 {
-        return None;
-    }
-    s.read(buf: &mut [Self::CharType])
-    
 
 
 
