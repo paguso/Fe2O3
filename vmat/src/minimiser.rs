@@ -1,18 +1,17 @@
 use crate::alphabet::{Alphabet, Character};
 use crate::mqueue::MQueue;
 use crate::xstream::XStream;
-use crate::xstring::XStrRanker;
+use crate::xstring::XStrHasher;
 use crate::xstring::XString;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
-use std::hash::Hash;
 use std::io;
 
 fn find_minimisers<C>(
     s: &mut impl XStream<CharType = C>,
     w: usize,
     k: usize,
-    ranker: &impl XStrRanker<CharType = C>,
+    ranker: &impl XStrHasher<CharType = C>,
 ) -> Option<Vec<usize>>
 where
     C: Character,
@@ -38,7 +37,7 @@ where
     // process first window
     let mut pos: usize;
     for pos in 0..wlen - k + 1 {
-        wscores.push((ranker.rank(&window[pos..pos + k]), pos));
+        wscores.push((ranker.hash(&window[pos..pos + k]), pos));
     }
 
     let mut minimisers: Vec<usize> = vec![];
@@ -58,7 +57,7 @@ where
                 wmin_mask.rotate_left(1);
                 wmin_mask[w - 1] = false;
                 wscores.pop();
-                wscores.push((ranker.rank(&window[wlen - k..]), pos));
+                wscores.push((ranker.hash(&window[wlen - k..]), pos));
                 pos += 1;
                 wpos += 1;
             }
@@ -111,7 +110,7 @@ fn index_minimisers<C>(
     s: &mut impl XStream<CharType = C>,
     w: Vec<usize>,
     k: Vec<usize>,
-    ranker: &[&impl XStrRanker<CharType = C>],
+    ranker: &[&impl XStrHasher<CharType = C>],
 ) -> Result<MmIndex, io::Error>
 where
     C: Character,
@@ -120,13 +119,15 @@ where
     let mut window: XString<C> = XString::new();
     // maximum necessary window buffer length
     let max_wlen = w.iter().zip(k.iter()).map(|(a, b)| a + b).max().unwrap() - 1;
+    let min_k = *k.iter().min().unwrap();
+    println!("max_wlen={} k_min={}", max_wlen, min_k);
 
     let mut mmindex = MmIndex::new(w, k);
     let mut wscores: Vec<MQueue<(TMmRank, usize)>> = vec![MQueue::new_min(); nidx];
 
     let mut pos = 0;
     //read in first window
-    while true {
+    while !s.eos()? {
         match s.get()? {
             Some(c) => {
                 if pos >= max_wlen {
@@ -145,7 +146,7 @@ where
                     Some(lmm) => (lmm.0, lmm.1),
                     None => (0, 0),
                 };
-                let kmer_rk = ranker[i].rank(&window[window.len() - mmindex.k[i]..]);
+                let kmer_rk = ranker[i].hash(&window[window.len() - mmindex.k[i]..]);
                 let kmer_pos = pos - mmindex.k[i];
                 wscores[i].push((kmer_rk, kmer_pos));
                 if pos > mmindex.w[i] + mmindex.k[i] - 1 {
@@ -164,98 +165,38 @@ where
             }
         }
     }
-    Ok(mmindex)
-}
-
-/*
-fn index_minimisers<C>(src: &mut impl XStream<CharType=C>, w:usize, k_vals: &[usize], ranker: &impl XStrRanker<CharType=C>) -> Result<HashMap<XString<C>, Vec<usize>>, io::Error>
-where
-    C: Character + Hash,
-{
-    let mut index: HashMap<XString<C>, Vec<usize>> = HashMap::new();
-
-    if k_vals.len()==0 || w==0 {
-        return  Ok(index);
-    }
-
-    let mut sorted_k = vec![0usize; k_vals.len()];
-    sorted_k.copy_from_slice(k_vals);
-    sorted_k.sort();
-    let k_count = sorted_k.len();
-    let k_min = sorted_k[0];
-    let k_max = sorted_k[k_count-1];
-
-    let mut window = XString::new();
-    let mut wlen = 0;
-
-    // read in first window
-    while wlen <= w + k_max - 1 {
-        match src.get()? {
-            Some(c) => {
-                window.push(c);
-                wlen += 1;
-            }
-            None => break,
-        }
-    }
-    if wlen < k_min {
-        return Ok(index);
-    }
-
-    let mut wscores: Vec<MQueue<(u64, usize)>> = vec![MQueue::new_min(); k_count];
-    // process first window
-    let mut pos: usize;
-    for pos in 0..min(w, wlen-k_min+1) {
-        for (i,k) in sorted_k.iter().enumerate() {
-            if pos + k < wlen {
-                wscores[i].push((ranker.rank(&window[pos..pos + k]), pos));
-            }
-        }
-    }
-
-    let mut w_end = wlen;
-    while true {
-        for (i,k) in sorted_k.iter().enumerate()  {
-            if !wscores[i].is_empty() {
-                let wmin = wscores[i].xtr().unwrap();
-                let kmer = XString::from(&window[wmin.1..wmin.1+k]);
-                match index.get_mut(&kmer) {
-                    Some(occ) => {occ.push(wmin.1);},
-                    None => {index.insert(kmer, vec![wmin.1]);}
-                }
-            }
-        }
-        match src.get()? {
-            Some(c) => {
-                window.rotate_left(1);
-                window[wlen - 1] = c;
-                for (i,k) in sorted_k.iter().enumerate() {
-                    if !wscores[i].is_empty() {
-                        wscores[i].pop();
-                        wscores[i].push((ranker.rank(&window[wlen - k..]), pos));
+    // index end minimisers
+    let mut still_indexing = true;
+    while still_indexing {
+        still_indexing = false;
+        for i in 0..nidx {
+            if wscores[i].len() > 1 {
+                still_indexing = true;
+                let (last_mm_rk, last_mm_pos) = match wscores[i].xtr() {
+                    Some(lmm) => (lmm.0, lmm.1),
+                    None => (0, 0),
+                };
+                wscores[i].pop();
+                let (cur_mm_rk, cur_mm_pos) = wscores[i].xtr().unwrap();
+                if last_mm_rk != *cur_mm_rk {
+                    // new minimiser
+                    for &(rk, p) in wscores[i].xtr_iter() {
+                        mmindex.insert(i, rk, p);
                     }
                 }
             }
-            None => {
-                window.remove(0);
-                wlen -= 1;
-                if wlen < k_min {
-                    break;
-                }
-            }
         }
     }
-
-    Ok(index)
+    Ok(mmindex)
 }
-*/
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alphabet::DNAAlphabet;
+    use crate::dna::{DNAAlphabet, DNAHasher};
     use crate::xstream::XStrStream;
-    use crate::xstring::{XStrLexRanker, XString};
+    use crate::xstring::{XStrLexHasher, XString};
     use std::rc::Rc;
 
     #[test]
@@ -263,7 +204,7 @@ mod tests {
         let dna_ab = DNAAlphabet::new();
         let w = 4;
         let k = 5;
-        let ranker = XStrLexRanker::new(Rc::new(dna_ab));
+        let ranker = XStrLexHasher::new(Rc::new(dna_ab));
         let mut src = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
         let mut stream = XStrStream::open(src);
         let minimisers = find_minimisers(&mut stream, w, k, &ranker).unwrap();
@@ -277,19 +218,19 @@ mod tests {
     #[test]
     fn test_index_minimisers() {
         let dna_ab = DNAAlphabet::new();
-        let w = vec![2,2,8];
+        let w = vec![6,2,8];
         let k = vec![3,6,16];
-        let lexrk = XStrLexRanker::new(Rc::new(dna_ab));
+        let lexrk = DNAHasher::new(Rc::new(dna_ab));
         let ranker = vec![&lexrk; 3];
         let mut src = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
         let mut stream = XStrStream::open(src);
         let mmindex = index_minimisers(&mut stream, w, k, &ranker[..]).unwrap();
         src = stream.close();
-        let occ = mmindex.get(0, lexrk.rank("acg".as_bytes()));
+        let occ = mmindex.get(0, lexrk.hash("acg".as_bytes()));
         println!("acg = {0:?}",occ);
-        let occ = mmindex.get(0, lexrk.rank("cgt".as_bytes()));
+        let occ = mmindex.get(0, lexrk.hash("cgt".as_bytes()));
         println!("cgt = {0:?}",occ);
-        let occ = mmindex.get(1, lexrk.rank("cgtacg".as_bytes()));
+        let occ = mmindex.get(1, lexrk.hash("cgtacg".as_bytes()));
         println!("cgtacg = {0:?}",occ);
     }
 }

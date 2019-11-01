@@ -116,12 +116,20 @@ where
     }
 }
 
-pub trait XStrRanker {
+
+
+
+pub trait XStrHasher {
     type CharType;
-    fn rank(&self, s: &[Self::CharType]) -> u64;
+    fn hash(&self, s: &[Self::CharType]) -> u64;
 }
 
-pub struct XStrLexRanker<C, A>
+pub trait XStrRollHasher: XStrHasher {
+    fn roll_hash(&self, h: &mut u64, c: Self::CharType);
+}
+
+
+pub struct XStrLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
@@ -129,23 +137,24 @@ where
     ab: Rc<A>,
 }
 
-impl<C, A> XStrLexRanker<C, A>
+impl<C, A> XStrLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
 {
     pub fn new(ab: Rc<A>) -> Self {
-        XStrLexRanker { ab }
+        XStrLexHasher { ab }
     }
 }
 
-impl<C, A> XStrRanker for XStrLexRanker<C, A>
+impl<C, A> XStrHasher for XStrLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
 {
     type CharType = C;
-    fn rank(&self, s: &[Self::CharType]) -> u64 {
+
+    fn hash(&self, s: &[Self::CharType]) -> u64 {
         let mut r: u64 = 0;
         for c in s {
             r = (r * self.ab.len() as u64) + self.ab.ord(c).expect("Char not in alphabet") as u64;
@@ -153,6 +162,21 @@ where
         r
     }
 }
+
+
+impl<C, A> XStrRollHasher for XStrLexHasher<C, A>
+where
+    C: Character,
+    A: Alphabet<CharType = C>,
+{
+    fn roll_hash(&self, h: &mut u64, c: Self::CharType) {
+        *h = (*h * self.ab.len() as u64) + self.ab.ord(&c).expect("Char not in alphabet") as u64;
+    }
+}
+
+
+
+
 
 #[cfg(test)]
 mod tests {

@@ -1,4 +1,3 @@
-use crate::mstack::MStack;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 
@@ -37,8 +36,8 @@ pub struct MQueue<T>
 where
     T: Ord,
 {
-    queue: VecDeque<T>,
-    minmax: VecDeque<usize>,
+    pub queue: VecDeque<T>,
+    pub minmax: VecDeque<usize>,
     crit: Ordering,
     popped: usize,
 }
