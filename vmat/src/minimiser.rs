@@ -137,8 +137,8 @@ where
                     window.push(c);
                 }
                 pos += 1;
-            },
-            None => break
+            }
+            None => break,
         }
         for i in 0..nidx {
             if pos >= mmindex.k[i] {
@@ -190,7 +190,6 @@ where
     Ok(mmindex)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,23 +213,48 @@ mod tests {
             assert_eq!(&src[..k], &src[*j..*j + k]);
         }
     }
-    
+
     #[test]
     fn test_index_minimisers() {
         let dna_ab = DNAAlphabet::new();
-        let w = vec![6,2,8];
-        let k = vec![3,6,16];
-        let lexrk = DNAHasher::new(Rc::new(dna_ab));
-        let ranker = vec![&lexrk; 3];
+        let w = vec![6, 4, 8];
+        let k = vec![3, 6, 16];
+        let mut letters = [
+            DNAAlphabet::a,
+            DNAAlphabet::c,
+            DNAAlphabet::g,
+            DNAAlphabet::t,
+        ];
+        let mut ranker = vec![];
+        ranker.push(DNAHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
+            &letters,
+        ))));
+        println!("letters[0] = {0:?}", letters);
+        letters.rotate_left(1);
+        println!("letters[1] = {0:?}", letters);
+        ranker.push(DNAHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
+            &letters,
+        ))));
+        letters.rotate_left(1);
+        println!("letters[1] = {0:?}", letters);
+        ranker.push(DNAHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
+            &letters,
+        ))));
+        let ranker_refs = [&ranker[0], &ranker[1], &ranker[2]];
+        //                           0         1         2         3
         let mut src = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
         let mut stream = XStrStream::open(src);
-        let mmindex = index_minimisers(&mut stream, w, k, &ranker[..]).unwrap();
+        let mmindex = index_minimisers(&mut stream, w, k, &ranker_refs).unwrap();
         src = stream.close();
-        let occ = mmindex.get(0, lexrk.hash("acg".as_bytes()));
-        println!("acg = {0:?}",occ);
-        let occ = mmindex.get(0, lexrk.hash("cgt".as_bytes()));
-        println!("cgt = {0:?}",occ);
-        let occ = mmindex.get(1, lexrk.hash("cgtacg".as_bytes()));
-        println!("cgtacg = {0:?}",occ);
+        let occ = mmindex.get(0, ranker[0].hash("acg".as_bytes()));
+        println!("acg = {0:?}", occ);
+        let occ = mmindex.get(0, ranker[0].hash("cgt".as_bytes()));
+        println!("cgt = {0:?}", occ);
+        let occ = mmindex.get(1, ranker[1].hash("acgtac".as_bytes()));
+        println!("acgtac = {0:?}", occ);
+        let occ = mmindex.get(1, ranker[1].hash("cgtacg".as_bytes()));
+        println!("cgtacg = {0:?}", occ);
+        let occ = mmindex.get(1, ranker[1].hash("gtacgt".as_bytes()));
+        println!("gtacgt = {0:?}", occ);
     }
 }

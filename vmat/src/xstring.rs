@@ -116,9 +116,6 @@ where
     }
 }
 
-
-
-
 pub trait XStrHasher {
     type CharType;
     fn hash(&self, s: &[Self::CharType]) -> u64;
@@ -127,7 +124,6 @@ pub trait XStrHasher {
 pub trait XStrRollHasher: XStrHasher {
     fn roll_hash(&self, h: &mut u64, c: Self::CharType);
 }
-
 
 pub struct XStrLexHasher<C, A>
 where
@@ -163,7 +159,6 @@ where
     }
 }
 
-
 impl<C, A> XStrRollHasher for XStrLexHasher<C, A>
 where
     C: Character,
@@ -173,10 +168,6 @@ where
         *h = (*h * self.ab.len() as u64) + self.ab.ord(&c).expect("Char not in alphabet") as u64;
     }
 }
-
-
-
-
 
 #[cfg(test)]
 mod tests {
