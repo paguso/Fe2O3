@@ -92,6 +92,7 @@ where C: Character,
 {
     type CharType = C;
     fn get(&mut self) -> Result<Option<C>, io::Error> {
+
     }
 
     fn read(&mut self, buf: &mut [C]) -> Result<usize, io::Error> {
