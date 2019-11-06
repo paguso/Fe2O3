@@ -1,14 +1,14 @@
 use crate::alphabet::{Alphabet, Character};
 use crate::xstring::XString;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error};
+use std::io::{BufRead, BufReader, Read, Error, ErrorKind};
 use std::path::Path;
 
 pub trait XStream {
     type CharType;
 
     /// Returns whether the End OF Stream is reached
-    fn eos(&self) -> Result<bool, std::io::Error>;
+    //fn eos(&self) -> Result<bool, std::io::Error>;
 
     /// Reads from stream into the given buffer.
     /// Returns the number of items (chars) read.
@@ -60,30 +60,47 @@ where
         Ok(nitems)
     }
 
-    fn eos(&self) -> Result<bool, std::io::Error> {
-        Ok(self.cur >= self.xstr.len())
-    }
+    //fn eos(&self) -> Result<bool, std::io::Error> {
+    //   Ok(self.cur >= self.xstr.len())
+    //}
 }
 
 
 pub struct XStrFileReader<C> {
     freader: BufReader<File>,
+    achar: C, 
+    char_bytes: usize
 }
 
 impl<C> XStrFileReader<C> 
 where C: Character
 {
-    fn new_from_file(src: File) -> Result<Self, std::io::Error> {
+    fn new_from_file(src: File, achar: C) -> Result<Self, std::io::Error> {
+        let mut cb;
+        cb = std::mem::size_of::<C>();
         Ok( XStrFileReader {
                 freader: BufReader::new(src),
+                achar: achar,
+                char_bytes: cb
             }
         )
     }
 
-    fn new<P: AsRef<Path>> (path: P) -> Result<Self, std::io::Error> {
+    fn new<P: AsRef<Path>> (path: P, achar: C) -> Result<Self, std::io::Error> {
         let mut file = File::open(path)?;
-        Self::new_from_file(file)
+        Self::new_from_file(file, achar)
     } 
+}
+
+/// Convert a slice of T (where T is plain old data) to its mutable binary
+/// representation.
+///
+/// This function is wildly unsafe because it permits arbitrary modification of
+/// the binary representation of any `Copy` type. Use with care.
+unsafe fn slice_to_u8_mut<T: Copy>(slice: &mut [T]) -> &mut [u8] {
+    use std::mem::size_of;
+    let len = size_of::<T>() * slice.len();
+    std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut u8, len)
 }
 
 
@@ -91,15 +108,24 @@ impl<C> XStream for XStrFileReader<C>
 where C: Character,
 {
     type CharType = C;
-    fn get(&mut self) -> Result<Option<C>, io::Error> {
-
+    fn get(&mut self) -> Result<Option<C>, std::io::Error> {
+        let mut c: &[C] = &[Default::default()]; 
+        self.read(&mut c)?;
+        Ok(Some(c[0]))
     }
 
-    fn read(&mut self, buf: &mut [C]) -> Result<usize, io::Error> {
+    fn read(&mut self, buf: &mut [C]) -> Result<usize, std::io::Error> {
+        let mut m;
+        unsafe {
+            let mut rawbuf = std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len() * self.char_bytes);
+            m = self.freader.read(rawbuf)?;
+        }
+        if m % self.char_bytes != 0 {
+            return Result::Err(Error::new(ErrorKind::InvalidData, "Invalid number or bytes"));
+        }
+        Ok( m / self.char_bytes)
     }
 
-    fn eos(&self) -> Result<bool, io::Error> {
-    }
 }
 
 

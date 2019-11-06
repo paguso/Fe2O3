@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
 
-pub trait Character: Copy + Eq + Hash {}
+pub trait Character: Default + Copy + Eq + Hash {}
 
 impl Character for u8 {}
 impl Character for u16 {}
