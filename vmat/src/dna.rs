@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 pub struct DNAAlphabet {
     letters: [u8; 4],
+    ranks: [usize; 64]
 }
 
 impl DNAAlphabet {
@@ -13,10 +14,19 @@ impl DNAAlphabet {
     pub const g: u8 = b'g';
     pub const t: u8 = b't';
 
-    pub fn new() -> DNAAlphabet {
-        DNAAlphabet {
-            letters: [Self::a, Self::c, Self::g, Self::t],
+    fn init_ranks(&mut self)  {
+        for r in self.letters.iter().enumerate() {
+            self.ranks[*r.1 as usize - 65] = r.0;
         }
+    }
+
+    pub fn new() -> DNAAlphabet {
+        let mut ret = DNAAlphabet {
+            letters: [Self::a, Self::c, Self::g, Self::t],
+            ranks: [0usize; 64],
+        };
+        ret.init_ranks();
+        ret
     }
 
     pub fn new_with_permutation(letters: &[u8]) -> DNAAlphabet {
@@ -27,9 +37,12 @@ impl DNAAlphabet {
         assert!(letters.contains(&Self::t));
         let mut my_letters = [0u8; 4];
         my_letters.copy_from_slice(letters);
-        DNAAlphabet {
+        let mut ret = DNAAlphabet {
             letters: my_letters,
-        }
+            ranks: [0usize; 64],
+        };
+        ret.init_ranks();
+        ret
     }
 }
 

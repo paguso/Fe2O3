@@ -1,8 +1,9 @@
 use crate::alphabet::{Alphabet, Character};
 use crate::xstring::XString;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Error, ErrorKind};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Read};
 use std::path::Path;
+use std::slice;
 
 pub trait XStream {
     type CharType;
@@ -65,31 +66,34 @@ where
     //}
 }
 
+use std::marker::PhantomData;
+use std::mem::size_of;
 
 pub struct XStrFileReader<C> {
+    any_char: PhantomData<C>,
+    char_bytes: usize,
     freader: BufReader<File>,
-    achar: C, 
-    char_bytes: usize
 }
 
-impl<C> XStrFileReader<C> 
-where C: Character
+impl<C> XStrFileReader<C>
+where
+    C: Character,
 {
-    fn new_from_file(src: File, achar: C) -> Result<Self, std::io::Error> {
-        let mut cb;
-        cb = std::mem::size_of::<C>();
-        Ok( XStrFileReader {
-                freader: BufReader::new(src),
-                achar: achar,
-                char_bytes: cb
-            }
-        )
+    fn new_from_file(src: File) -> Result<Self, std::io::Error> {
+        Ok(XStrFileReader {
+            any_char: PhantomData,
+            char_bytes: size_of::<C>(),
+            freader: BufReader::new(src),
+        })
     }
 
-    fn new<P: AsRef<Path>> (path: P, achar: C) -> Result<Self, std::io::Error> {
+    fn new<P>(path: P, achar: C) -> Result<Self, std::io::Error>
+    where
+        P: AsRef<Path>,
+    {
         let mut file = File::open(path)?;
-        Self::new_from_file(file, achar)
-    } 
+        Self::new_from_file(file)
+    }
 }
 
 /// Convert a slice of T (where T is plain old data) to its mutable binary
@@ -98,18 +102,17 @@ where C: Character
 /// This function is wildly unsafe because it permits arbitrary modification of
 /// the binary representation of any `Copy` type. Use with care.
 unsafe fn slice_to_u8_mut<T: Copy>(slice: &mut [T]) -> &mut [u8] {
-    use std::mem::size_of;
     let len = size_of::<T>() * slice.len();
-    std::slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut u8, len)
+    slice::from_raw_parts_mut(slice.as_mut_ptr() as *mut u8, len)
 }
 
-
-impl<C> XStream for XStrFileReader<C> 
-where C: Character,
+impl<C> XStream for XStrFileReader<C>
+where
+    C: Character,
 {
     type CharType = C;
     fn get(&mut self) -> Result<Option<C>, std::io::Error> {
-        let mut c: &[C] = &[Default::default()]; 
+        let mut c: &[C] = &[Default::default()];
         self.read(&mut c)?;
         Ok(Some(c[0]))
     }
@@ -117,18 +120,19 @@ where C: Character,
     fn read(&mut self, buf: &mut [C]) -> Result<usize, std::io::Error> {
         let mut m;
         unsafe {
-            let mut rawbuf = std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len() * self.char_bytes);
+            let mut rawbuf =
+                slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len() * self.char_bytes);
             m = self.freader.read(rawbuf)?;
         }
         if m % self.char_bytes != 0 {
-            return Result::Err(Error::new(ErrorKind::InvalidData, "Invalid number or bytes"));
+            return Result::Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid number or bytes",
+            ));
         }
-        Ok( m / self.char_bytes)
+        Ok(m / self.char_bytes)
     }
-
 }
-
-
 
 #[cfg(test)]
 mod tests {
