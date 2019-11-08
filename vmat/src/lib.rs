@@ -1,7 +1,7 @@
-mod alphabet;
-mod dna;
-mod minimiser;
-mod mqueue;
-mod mstack;
-mod xstream;
-mod xstring;
+pub mod alphabet;
+pub mod dna;
+pub mod minimiser;
+pub mod mqueue;
+pub mod mstack;
+pub mod xstream;
+pub mod xstring;

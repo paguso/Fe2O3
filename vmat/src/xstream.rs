@@ -1,20 +1,18 @@
 use crate::alphabet::{Alphabet, Character};
 use crate::xstring::XString;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, ErrorKind, Read};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::slice;
 
 pub trait XStream {
     type CharType;
 
-    /// Returns whether the End OF Stream is reached
-    //fn eos(&self) -> Result<bool, std::io::Error>;
-
     /// Reads from stream into the given buffer.
     /// Returns the number of items (chars) read.
     fn read(&mut self, buf: &mut [Self::CharType]) -> Result<usize, std::io::Error>;
 
+    /// Reads the next char from stream, if any.
     fn get(&mut self) -> Result<Option<Self::CharType>, std::io::Error>;
 }
 
@@ -60,10 +58,6 @@ where
         self.cur += nitems;
         Ok(nitems)
     }
-
-    //fn eos(&self) -> Result<bool, std::io::Error> {
-    //   Ok(self.cur >= self.xstr.len())
-    //}
 }
 
 use std::marker::PhantomData;
@@ -79,7 +73,7 @@ impl<C> XStrFileReader<C>
 where
     C: Character,
 {
-    fn new_from_file(src: File) -> Result<Self, std::io::Error> {
+    pub fn new_from_file(src: File) -> Result<Self, std::io::Error> {
         Ok(XStrFileReader {
             any_char: PhantomData,
             char_bytes: size_of::<C>(),
@@ -87,7 +81,7 @@ where
         })
     }
 
-    fn new<P>(path: P, achar: C) -> Result<Self, std::io::Error>
+    pub fn new<P>(path: P) -> Result<Self, std::io::Error>
     where
         P: AsRef<Path>,
     {
@@ -112,15 +106,18 @@ where
 {
     type CharType = C;
     fn get(&mut self) -> Result<Option<C>, std::io::Error> {
-        let mut c: &[C] = &[Default::default()];
-        self.read(&mut c)?;
-        Ok(Some(c[0]))
+        let mut c: [C; 1] = [Default::default(); 1];
+        if self.read(&mut c)? == 1 {
+            Ok(Some(c[0]))
+        } else {
+            Ok(None)
+        }
     }
 
     fn read(&mut self, buf: &mut [C]) -> Result<usize, std::io::Error> {
         let mut m;
         unsafe {
-            let mut rawbuf =
+            let rawbuf =
                 slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len() * self.char_bytes);
             m = self.freader.read(rawbuf)?;
         }
@@ -134,11 +131,21 @@ where
     }
 }
 
+impl<C> Seek for XStrFileReader<C>
+where
+    C: Character,
+{
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64, std::io::Error> {
+        return self.freader.seek(pos);
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
     use crate::xstring::*;
+    use std::io::{BufWriter, Write};
 
     #[test]
     fn test_xstrstream() {
@@ -148,18 +155,64 @@ mod tests {
         let mut stream = XStrStream::open(xstr);
         let mut buf = [0; 3];
         let mut sum_chars = 0;
-        while !stream.eos().unwrap() {
-            sum_chars += stream.read(&mut buf).unwrap();
+        let mut n = stream.read(&mut buf).unwrap();
+        while n > 0 {
+            sum_chars += n;
+            n = stream.read(&mut buf).unwrap();
         }
         assert_eq!(sum_chars, s.len());
         xstr = stream.close();
         xstr.append_from_slice(s);
         sum_chars = 0;
         stream = XStrStream::open(xstr);
-        while !stream.eos().unwrap() {
-            sum_chars += stream.read(&mut buf).unwrap();
+        n = stream.read(&mut buf).unwrap();
+        while n > 0 {
+            sum_chars += n;
+            n = stream.read(&mut buf).unwrap();
         }
         assert_eq!(sum_chars, 2 * s.len());
         stream.close();
+    }
+
+    const DNA_FILE: &'static [u8] = b"aaaaaaaaaaccccccccccggggggggggtttttttttt";
+
+    fn file_setup() {
+        let f = File::create("test.txt").expect("Unabe to create the file");
+        let mut writer = BufWriter::new(f);
+        writer.write(&DNA_FILE);
+    }
+
+    fn file_teardown() {
+        std::fs::remove_file("test.txt").expect("Unable to delete file");
+    }
+
+    #[test]
+    fn test_xstrfilestream() {
+        file_setup();
+
+        let mut stream: XStrFileReader<u8> =
+            XStrFileReader::new("test.txt").expect("Cannot open stream");
+        let mut i = 0;
+        let mut c = stream.get().expect("cannot read from stream");
+        while c.is_some() {
+            assert_eq!(c.unwrap(), DNA_FILE[i]);
+            c = stream.get().expect("cannot read from stream");
+            i += 1;
+        }
+        assert_eq!(i, DNA_FILE.len());
+
+        i = 0;
+        let mut buf: [u8; 7] = [0; 7];
+        stream
+            .seek(SeekFrom::Start(0))
+            .expect("cannot rewind stream");
+        let mut m = stream.read(&mut buf).expect("cannot read from stream");
+        while m > 0 {
+            assert_eq!(buf[..m], DNA_FILE[i..i + m]);
+            i += m;
+            m = stream.read(&mut buf).expect("cannot read from stream");
+        }
+
+        file_teardown();
     }
 }

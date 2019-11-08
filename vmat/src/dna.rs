@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 pub struct DNAAlphabet {
     letters: [u8; 4],
-    ranks: [usize; 64]
+    ranks: [usize; 64],
 }
 
 impl DNAAlphabet {
@@ -14,7 +14,7 @@ impl DNAAlphabet {
     pub const g: u8 = b'g';
     pub const t: u8 = b't';
 
-    fn init_ranks(&mut self)  {
+    fn init_ranks(&mut self) {
         for r in self.letters.iter().enumerate() {
             self.ranks[*r.1 as usize - 65] = r.0;
         }

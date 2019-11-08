@@ -118,22 +118,16 @@ mod tests {
     fn test_push_pop_min() {
         let mut queue: MQueue<u32> = MQueue::new_min();
         queue.push(30);
-        println!("{0:?} {1:?}", queue.queue, queue.minmax);
         assert_eq!(*queue.xtr().unwrap(), 30 as u32);
         queue.push(20);
-        println!("{0:?} {1:?}", queue.queue, queue.minmax);
         assert_eq!(*queue.xtr().unwrap(), 20 as u32);
         queue.push(40);
-        println!("{0:?} {1:?}", queue.queue, queue.minmax);
         assert_eq!(*queue.xtr().unwrap(), 20 as u32);
         queue.pop();
-        println!("{0:?} {1:?}", queue.queue, queue.minmax);
         assert_eq!(*queue.xtr().unwrap(), 20 as u32);
         queue.pop();
-        println!("{0:?} {1:?}", queue.queue, queue.minmax);
         assert_eq!(*queue.xtr().unwrap(), 40 as u32);
         queue.pop();
-        println!("{0:?} {1:?}", queue.queue, queue.minmax);
         assert!(queue.pop().is_none());
     }
 
@@ -160,21 +154,13 @@ mod tests {
     fn test_xtr_iter() {
         let mut queue: MQueue<u32> = MQueue::new_min();
         queue.push(8);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(5);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(8);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(9);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(7);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(5);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(8);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         queue.push(5);
-        println!("q {0:?} {1:?}", queue.queue, queue.minmax);
         let mut c = 0;
         for m in queue.xtr_iter() {
             assert_eq!(*m, 5);

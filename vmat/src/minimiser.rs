@@ -79,12 +79,12 @@ pub struct MmIndex {
 }
 
 impl MmIndex {
-    fn new(w: Vec<usize>, k: Vec<usize>) -> MmIndex {
+    fn new(w: &[usize], k: &[usize]) -> MmIndex {
         let l = w.len();
         assert_eq!(l, k.len());
         MmIndex {
-            w: w,
-            k: k,
+            w: Vec::from(w),
+            k: Vec::from(k),
             tables: vec![HashMap::new(); l],
         }
     }
@@ -106,10 +106,10 @@ impl MmIndex {
     }
 }
 
-fn index_minimisers<C>(
+pub fn index_minimisers<C>(
     s: &mut impl XStream<CharType = C>,
-    w: Vec<usize>,
-    k: Vec<usize>,
+    w: &[usize], // Vec<usize>,
+    k: &[usize], //Vec<usize>,
     ranker: &[&impl XStrHasher<CharType = C>],
 ) -> Result<MmIndex, io::Error>
 where
@@ -126,20 +126,16 @@ where
     let mut wscores: Vec<MQueue<(TMmRank, usize)>> = vec![MQueue::new_min(); nidx];
 
     let mut pos = 0;
+    let mut c = s.get()?;
     //read in first window
-    while !s.eos()? {
-        match s.get()? {
-            Some(c) => {
-                if pos >= max_wlen {
-                    window.rotate_left(1);
-                    window[max_wlen - 1] = c;
-                } else {
-                    window.push(c);
-                }
-                pos += 1;
-            }
-            None => break,
+    while c.is_some() {
+        if pos >= max_wlen {
+            window.rotate_left(1);
+            window[max_wlen - 1] = c.unwrap();
+        } else {
+            window.push(c.unwrap());
         }
+        pos += 1;
         for i in 0..nidx {
             if pos >= mmindex.k[i] {
                 let (last_mm_rk, last_mm_pos) = match wscores[i].xtr() {
@@ -164,6 +160,7 @@ where
                 }
             }
         }
+        c = s.get()?;
     }
     // index end minimisers
     let mut still_indexing = true;
@@ -244,7 +241,7 @@ mod tests {
         //                           0         1         2         3
         let mut src = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
         let mut stream = XStrStream::open(src);
-        let mmindex = index_minimisers(&mut stream, w, k, &ranker_refs).unwrap();
+        let mmindex = index_minimisers(&mut stream, &w, &k, &ranker_refs).unwrap();
         src = stream.close();
         let occ = mmindex.get(0, ranker[0].hash("acg".as_bytes()));
         println!("acg = {0:?}", occ);

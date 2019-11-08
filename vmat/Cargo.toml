@@ -5,3 +5,4 @@ authors = ["Paulo Fonseca <paguso@cin.ufpe.br>"]
 edition = "2018"
 
 [dependencies]
+clap  = ">= 2.33.0"
