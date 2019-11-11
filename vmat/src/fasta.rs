@@ -6,32 +6,47 @@ use std::rc::Rc;
 use crate::alphabet::Alphabet;
 use crate::xstring::XString;
 
-pub struct FastaScanner {
-    reader: BufReader<File>,
+pub struct FastaReader <R> 
+where R: Read
+{
+    reader: BufReader<R>,
 }
 
-impl FastaScanner {
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, std::io::Error> {
-        let ret = FastaScanner {
+impl FastaReader<File> {
+    pub fn new_from_path<P: AsRef<Path>>(path: P) -> Result<Self, std::io::Error> {
+        Ok(FastaReader {
             reader: BufReader::new(File::open(path)?),
-        };
-        Ok(ret)
+        })
+    }
+}
+
+impl<R> FastaReader<R>
+where R: Read + Seek
+{
+
+    pub fn new(src: R) -> Result<Self, std::io::Error> {
+        Ok(FastaReader {
+            reader: BufReader::new(src),
+        })
     }
 
+    /// Reads the next FASTA record as a `(desc, seq)` pair where 
+    /// * `desc` is a String with the record description line without the starting `>` 
+    /// * `seq` is the actual sequence as a XString<u8> 
+    /// EOL chars are not included in `desc` or `seq`
     pub fn next_as_xstring(&mut self) -> Result<Option<(String, XString<u8>)>, std::io::Error> {
         // read next id
-        let mut id = String::new();
-        let mut n = self.reader.read_line(&mut id)?;
+        let mut desc = String::new();
+        let mut n = self.reader.read_line(&mut desc)?;
         if n == 0 {
             return Ok(None);
         }
-        assert_eq!(id.as_bytes()[0], '>' as u8);
-        id.pop();
-        id.remove(0);
+        assert_eq!(desc.as_bytes()[0], '>' as u8);
+        desc.pop();
+        desc.remove(0);
         let mut seq: Vec<u8> = Vec::new();
         loop {
             n = self.reader.read_until(0xA, &mut seq)?;
-            println!("seq={0:?}", seq);
             if n==0 { // EOF
                 break; 
             }
@@ -43,7 +58,7 @@ impl FastaScanner {
                 assert_eq!(seq.pop(), Some(0xA));
             }
         }
-        Ok(Some((id, XString::from(seq))))
+        Ok(Some((desc, XString::from(seq))))
     }
 }
 
@@ -87,9 +102,9 @@ GGGGGGGGGG
         let filename = "read_fasta.fas";
         file_setup(&filename);
 
-        let mut scanner = FastaScanner::open(&filename).expect(&format!("Unable to open file {}", filename));
+        let mut reader = FastaReader::new_from_path(&filename).expect(&format!("Unable to open file {}", filename));
         let mut nseq = 0;
-        while let Some((desc, s)) = scanner.next_as_xstring().expect("Unable to read from fasta file") {
+        while let Some((desc, s)) = reader.next_as_xstring().expect("Unable to read from fasta file") {
             println!("fasta description line = {}\n sequence={1:?}", desc, s);
             nseq +=1;
         }
