@@ -1,4 +1,4 @@
-use crate::alphabet::{Alphabet, Character};
+use crate::alphabet::Character;
 use crate::xstring::XString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Read, Seek, SeekFrom};
@@ -11,6 +11,12 @@ pub trait XStream {
     /// Reads from stream into the given buffer.
     /// Returns the number of items (chars) read.
     fn read(&mut self, buf: &mut [Self::CharType]) -> Result<usize, std::io::Error>;
+
+    fn read_until(
+        &mut self,
+        buf: &mut [Self::CharType],
+        delimiter: Self::CharType,
+    ) -> Result<usize, std::io::Error>;
 
     /// Reads the next char from stream, if any.
     fn get(&mut self) -> Result<Option<Self::CharType>, std::io::Error>;
@@ -58,6 +64,16 @@ where
         self.cur += nitems;
         Ok(nitems)
     }
+
+    fn read_until(&mut self, buf: &mut [C], delimiter: C) -> Result<usize, std::io::Error> {
+        let nitems = self.xstr[self.cur..]
+            .iter()
+            .position(|&x| x == delimiter)
+            .unwrap_or_else(|| self.xstr.len() - self.cur);
+        buf[..nitems].copy_from_slice(&self.xstr[self.cur..self.cur + nitems]);
+        self.cur += nitems;
+        Ok(nitems)
+    }
 }
 
 use std::marker::PhantomData;
@@ -85,7 +101,7 @@ where
     where
         P: AsRef<Path>,
     {
-        let mut file = File::open(path)?;
+        let file = File::open(path)?;
         Self::new_from_file(file)
     }
 }
@@ -115,7 +131,7 @@ where
     }
 
     fn read(&mut self, buf: &mut [C]) -> Result<usize, std::io::Error> {
-        let mut m;
+        let m;
         unsafe {
             let rawbuf =
                 slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len() * self.char_bytes);
@@ -128,6 +144,28 @@ where
             ));
         }
         Ok(m / self.char_bytes)
+    }
+
+    fn read_until(&mut self, buf: &mut [C], delimiter: C) -> Result<usize, std::io::Error> {
+        let mut m;
+        unsafe {
+            let rawbuf =
+                slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len() * self.char_bytes);
+            m = self.freader.read(rawbuf)?;
+        }
+        if m % self.char_bytes != 0 {
+            return Result::Err(Error::new(
+                ErrorKind::InvalidData,
+                "Invalid number or bytes",
+            ));
+        }
+        m /= self.char_bytes;
+        let del_pos = buf[..m]
+            .iter()
+            .position(|&x| x == delimiter)
+            .unwrap_or_else(|| m);
+        self.seek(SeekFrom::Current(del_pos as i64 - m as i64))?;
+        Ok(del_pos)
     }
 }
 
@@ -174,24 +212,38 @@ mod tests {
         stream.close();
     }
 
-    const DNA_FILE: &'static [u8] = b"aaaaaaaaaaccccccccccggggggggggtttttttttt";
+    #[test]
+    fn test_xstrstream_read_until() {
+        let mut xstr: XString<u8> = XString::from("abcdefghijklmnopqrstuvwxyz".as_bytes());
+        let mut stream = XStrStream::open(xstr);
+        let mut buf = [0; 12];
+        let n = stream.read_until(&mut buf, 'f' as u8).unwrap();
+        assert_eq!(n, 5);
+        let n = stream.read_until(&mut buf, 'r' as u8).unwrap();
+        assert_eq!(n, 12);
+        let n = stream.read_until(&mut buf, 'a' as u8).unwrap();
+        assert_eq!(n, 9);
+        stream.close();
+    }
 
-    fn file_setup() {
-        let f = File::create("test.txt").expect("Unabe to create the file");
+    const DNA_FILE: &'static [u8] = b"AAAAAAAAAACCCCCCCCCCGGGGGGGGGGTTTTTTTTTT";
+
+    fn file_setup(filename: &str) {
+        let f = File::create(filename).expect("Unabe to create the file");
         let mut writer = BufWriter::new(f);
         writer.write(&DNA_FILE);
     }
 
-    fn file_teardown() {
-        std::fs::remove_file("test.txt").expect("Unable to delete file");
+    fn file_teardown(filename: &str) {
+        std::fs::remove_file(filename).expect("Unable to delete file");
     }
 
     #[test]
-    fn test_xstrfilestream() {
-        file_setup();
+    fn test_xstrfilestream_read() {
+        file_setup("test_xstrfilestream_read.txt");
 
         let mut stream: XStrFileReader<u8> =
-            XStrFileReader::new("test.txt").expect("Cannot open stream");
+            XStrFileReader::new("test_xstrfilestream_read.txt").expect("Cannot open stream");
         let mut i = 0;
         let mut c = stream.get().expect("cannot read from stream");
         while c.is_some() {
@@ -213,6 +265,51 @@ mod tests {
             m = stream.read(&mut buf).expect("cannot read from stream");
         }
 
-        file_teardown();
+        file_teardown("test_xstrfilestream_read.txt");
+    }
+
+    #[test]
+    fn test_xstrfilestream_read_until() {
+        file_setup("test_xstrfilestream_read_until.txt");
+
+        let mut stream: XStrFileReader<u8> =
+            XStrFileReader::new("test_xstrfilestream_read_until.txt").expect("Cannot open stream");
+        let mut buf: [u8; 50] = [0; 50];
+        let mut cur = 0;
+        let mut m = stream
+            .read_until(&mut buf, 'A' as u8)
+            .expect("cannot read from stream");
+        assert_eq!(m, 0);
+        cur += m;
+        println!("cur={0} buf={1:?}", cur, &buf[..m]);
+        m = stream
+            .read_until(&mut buf, 'C' as u8)
+            .expect("cannot read from stream");
+        assert_eq!(m, 10);
+        cur += m;
+        println!("cur={0} buf={1:?}", cur, &buf[..m]);
+        m = stream
+            .read_until(&mut buf, 'T' as u8)
+            .expect("cannot read from stream");
+        assert_eq!(m, 20);
+        cur += m;
+        println!("cur={0} buf={1:?}", cur, &buf[..m]);
+        m = stream
+            .read_until(&mut buf, 'T' as u8)
+            .expect("cannot read from stream");
+        assert_eq!(m, 0);
+        cur += m;
+        println!("cur={0} buf={1:?}", cur, &buf[..m]);
+        m = stream
+            .read_until(&mut buf, 'A' as u8)
+            .expect("cannot read from stream");
+        assert_eq!(m, 10);
+        cur += m;
+        println!("cur={0} buf={1:?}", cur, &buf[..m]);
+        for j in 0..m {
+            assert_eq!(buf[j], DNA_FILE[cur - m + j]);
+        }
+
+        file_teardown("test_xstrfilestream_read_until.txt");
     }
 }

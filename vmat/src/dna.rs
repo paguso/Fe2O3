@@ -9,10 +9,10 @@ pub struct DNAAlphabet {
 }
 
 impl DNAAlphabet {
-    pub const a: u8 = b'a';
-    pub const c: u8 = b'c';
-    pub const g: u8 = b'g';
-    pub const t: u8 = b't';
+    pub const A: u8 = b'A';
+    pub const C: u8 = b'C';
+    pub const G: u8 = b'G';
+    pub const T: u8 = b'T';
 
     fn init_ranks(&mut self) {
         for r in self.letters.iter().enumerate() {
@@ -22,7 +22,7 @@ impl DNAAlphabet {
 
     pub fn new() -> DNAAlphabet {
         let mut ret = DNAAlphabet {
-            letters: [Self::a, Self::c, Self::g, Self::t],
+            letters: [Self::A, Self::C, Self::G, Self::T],
             ranks: [0usize; 64],
         };
         ret.init_ranks();
@@ -31,10 +31,10 @@ impl DNAAlphabet {
 
     pub fn new_with_permutation(letters: &[u8]) -> DNAAlphabet {
         assert_eq!(letters.len(), 4);
-        assert!(letters.contains(&Self::a));
-        assert!(letters.contains(&Self::c));
-        assert!(letters.contains(&Self::g));
-        assert!(letters.contains(&Self::t));
+        assert!(letters.contains(&Self::A));
+        assert!(letters.contains(&Self::C));
+        assert!(letters.contains(&Self::G));
+        assert!(letters.contains(&Self::T));
         let mut my_letters = [0u8; 4];
         my_letters.copy_from_slice(letters);
         let mut ret = DNAAlphabet {
@@ -62,13 +62,13 @@ impl Alphabet for DNAAlphabet {
     }
 
     fn ord(&self, chr: &Self::CharType) -> Option<usize> {
-        if (*chr == self.letters[0]) {
+        if *chr == self.letters[0] {
             return Some(0);
-        } else if (*chr == self.letters[1]) {
+        } else if *chr == self.letters[1] {
             return Some(1);
-        } else if (*chr == self.letters[2]) {
+        } else if *chr == self.letters[2] {
             return Some(2);
-        } else if (*chr == self.letters[3]) {
+        } else if *chr == self.letters[3] {
             return Some(3);
         } else {
             return None;
@@ -98,7 +98,11 @@ impl XStrHasher for DNAHasher {
     fn hash(&self, s: &[Self::CharType]) -> u64 {
         let mut h: u64 = 0;
         for c in s {
-            h = (h << 2) | self.ab.ord(c).expect("Char not in alphabet") as u64;
+            h = (h << 2)
+                | self.ab.ord(c).expect(&format!(
+                    "Char '{0}' not found in alphabet {1:?}",
+                    c, self.ab.letters
+                )) as u64;
         }
         h
     }
@@ -116,23 +120,23 @@ mod tests {
     #[test]
     fn test_dna_ab_index() {
         let ab = DNAAlphabet::new();
-        assert_eq!(ab[0], DNAAlphabet::a);
-        assert_eq!(ab[1], DNAAlphabet::c);
+        assert_eq!(ab[0], DNAAlphabet::A);
+        assert_eq!(ab[1], DNAAlphabet::C);
     }
 
     #[test]
     fn test_dna_ab_chr() {
         let ab = DNAAlphabet::new();
-        assert_eq!(*ab.chr(0).unwrap(), 'a' as u8);
-        assert_eq!(*ab.chr(1).unwrap(), 'c' as u8);
+        assert_eq!(*ab.chr(0).unwrap(), 'A' as u8);
+        assert_eq!(*ab.chr(1).unwrap(), 'C' as u8);
         assert_eq!(ab.chr(6), None);
     }
 
     #[test]
     fn test_dna_ab_ord() {
         let ab = DNAAlphabet::new();
-        assert_eq!(ab.ord(&('a' as u8),).unwrap(), 0);
-        assert_eq!(ab.ord(&('g' as u8),).unwrap(), 2);
+        assert_eq!(ab.ord(&('A' as u8),).unwrap(), 0);
+        assert_eq!(ab.ord(&('G' as u8),).unwrap(), 2);
         assert_eq!(ab.ord(&('_' as u8)), None);
     }
 }

@@ -1,6 +1,5 @@
 use crate::alphabet::Character;
 
-use std::cmp;
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
 use std::rc::Rc;
@@ -8,7 +7,7 @@ use std::slice::SliceIndex;
 
 use crate::alphabet::Alphabet;
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub struct XString<C>
 where
     C: Character,

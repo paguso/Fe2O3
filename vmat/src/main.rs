@@ -26,19 +26,19 @@ fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) 
 
     let dna_ab = DNAAlphabet::new();
     let mut letters = [
-        DNAAlphabet::a,
-        DNAAlphabet::c,
-        DNAAlphabet::g,
-        DNAAlphabet::t,
+        DNAAlphabet::A,
+        DNAAlphabet::C,
+        DNAAlphabet::G,
+        DNAAlphabet::T,
     ];
     let mut ranker = vec![];
-    for i in 0..m {
+    for _i in 0..m {
         ranker.push(DNAHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
             &letters,
         ))));
         letters.rotate_left(1);
     }
-    let ranker_refs = [&ranker[0], &ranker[1], &ranker[2]];
+    let ranker_refs: Vec<&DNAHasher> = ranker.iter().collect();
 
     minimiser::index_minimisers(&mut reader, w, k, &ranker_refs);
 
@@ -48,7 +48,6 @@ fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) 
 fn main() {
     let matches = App::new("VMAT - Variable Minimiser Alignment Tool")
         .version("0.1")
-        .author("Paulo Fonseca (paguso@cin.ufpe.br)")
         .about("Variable Minimiser Alignment Tool")
         .subcommand(
             SubCommand::with_name("index")

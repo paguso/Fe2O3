@@ -1,4 +1,4 @@
-use crate::alphabet::{Alphabet, Character};
+use crate::alphabet::Character;
 use crate::mqueue::MQueue;
 use crate::xstream::XStream;
 use crate::xstring::XStrHasher;
@@ -138,7 +138,7 @@ where
         pos += 1;
         for i in 0..nidx {
             if pos >= mmindex.k[i] {
-                let (last_mm_rk, last_mm_pos) = match wscores[i].xtr() {
+                let (last_mm_rk, _last_mm_pos) = match wscores[i].xtr() {
                     Some(lmm) => (lmm.0, lmm.1),
                     None => (0, 0),
                 };
@@ -148,7 +148,7 @@ where
                 if pos > mmindex.w[i] + mmindex.k[i] - 1 {
                     wscores[i].pop();
                 }
-                let (cur_mm_rk, cur_mm_pos) = wscores[i].xtr().unwrap();
+                let (cur_mm_rk, _cur_mm_pos) = wscores[i].xtr().unwrap();
                 if last_mm_rk != *cur_mm_rk {
                     // new minimiser
                     for &(rk, p) in wscores[i].xtr_iter() {
@@ -169,12 +169,12 @@ where
         for i in 0..nidx {
             if wscores[i].len() > 1 {
                 still_indexing = true;
-                let (last_mm_rk, last_mm_pos) = match wscores[i].xtr() {
+                let (last_mm_rk, _last_mm_pos) = match wscores[i].xtr() {
                     Some(lmm) => (lmm.0, lmm.1),
                     None => (0, 0),
                 };
                 wscores[i].pop();
-                let (cur_mm_rk, cur_mm_pos) = wscores[i].xtr().unwrap();
+                let (cur_mm_rk, _cur_mm_pos) = wscores[i].xtr().unwrap();
                 if last_mm_rk != *cur_mm_rk {
                     // new minimiser
                     for &(rk, p) in wscores[i].xtr_iter() {
@@ -201,7 +201,7 @@ mod tests {
         let w = 4;
         let k = 5;
         let ranker = XStrLexHasher::new(Rc::new(dna_ab));
-        let mut src = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
+        let mut src = XString::from("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT".as_bytes());
         let mut stream = XStrStream::open(src);
         let minimisers = find_minimisers(&mut stream, w, k, &ranker).unwrap();
         src = stream.close();
@@ -217,10 +217,10 @@ mod tests {
         let w = vec![6, 4, 8];
         let k = vec![3, 6, 16];
         let mut letters = [
-            DNAAlphabet::a,
-            DNAAlphabet::c,
-            DNAAlphabet::g,
-            DNAAlphabet::t,
+            DNAAlphabet::A,
+            DNAAlphabet::C,
+            DNAAlphabet::G,
+            DNAAlphabet::T,
         ];
         let mut ranker = vec![];
         ranker.push(DNAHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
@@ -239,19 +239,19 @@ mod tests {
         ))));
         let ranker_refs = [&ranker[0], &ranker[1], &ranker[2]];
         //                           0         1         2         3
-        let mut src = XString::from("acgtacgtacgtacgtacgtacgtacgtacgtacgtacgt".as_bytes());
+        let mut src = XString::from("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT".as_bytes());
         let mut stream = XStrStream::open(src);
         let mmindex = index_minimisers(&mut stream, &w, &k, &ranker_refs).unwrap();
         src = stream.close();
-        let occ = mmindex.get(0, ranker[0].hash("acg".as_bytes()));
-        println!("acg = {0:?}", occ);
-        let occ = mmindex.get(0, ranker[0].hash("cgt".as_bytes()));
-        println!("cgt = {0:?}", occ);
-        let occ = mmindex.get(1, ranker[1].hash("acgtac".as_bytes()));
-        println!("acgtac = {0:?}", occ);
-        let occ = mmindex.get(1, ranker[1].hash("cgtacg".as_bytes()));
-        println!("cgtacg = {0:?}", occ);
-        let occ = mmindex.get(1, ranker[1].hash("gtacgt".as_bytes()));
-        println!("gtacgt = {0:?}", occ);
+        let occ = mmindex.get(0, ranker[0].hash("ACG".as_bytes()));
+        println!("ACG = {0:?}", occ);
+        let occ = mmindex.get(0, ranker[0].hash("CGT".as_bytes()));
+        println!("CGT = {0:?}", occ);
+        let occ = mmindex.get(1, ranker[1].hash("ACGTAC".as_bytes()));
+        println!("ACGTAC = {0:?}", occ);
+        let occ = mmindex.get(1, ranker[1].hash("CGTACG".as_bytes()));
+        println!("CGTACG = {0:?}", occ);
+        let occ = mmindex.get(1, ranker[1].hash("GTACGT".as_bytes()));
+        println!("GTACGT = {0:?}", occ);
     }
 }

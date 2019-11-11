@@ -1,5 +1,6 @@
 pub mod alphabet;
 pub mod dna;
+pub mod fasta;
 pub mod minimiser;
 pub mod mqueue;
 pub mod mstack;
