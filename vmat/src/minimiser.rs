@@ -1,12 +1,187 @@
 use crate::alphabet::Character;
 use crate::mqueue::MQueue;
 use crate::xstream::XStream;
-use crate::xstring::XStrHasher;
+use crate::xstring::{XStrHasher, XStrLexHasher, XStrRollHasher};
 use crate::xstring::XString;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
 use std::io;
+use std::marker::PhantomData;
+use std::mem::size_of;
 
+type TMmRank = u64;
+
+#[inline]
+fn pred(v: &[usize], x: usize) -> Option<usize> {
+    if v.len()==0 || v[0] > x {
+        return None;
+    }
+    let mut r = v.len();
+    if v[r] <= x {
+        return Some(r);
+    }
+    let mut l = 0;
+    let mut h:usize;
+    // invariant: pred is in [l,r)
+    while r - l > 1 {
+        h = (l + r) / 2;
+        if v[h] <= x {
+            l = h;
+        } else {
+            r = h;
+        }
+    }
+    Some(l)
+}
+
+pub struct MmIndex<C, H> 
+where C: Character,
+      H: XStrRollHasher<CharType=C>,
+{
+    ac: PhantomData<C>,
+    w: Vec<usize>,
+    k: Vec<usize>,
+    hasher: Vec<H>,
+    tables: Vec<HashMap<TMmRank, Vec<usize>>>,
+    nseq: usize,
+    offs: Vec<usize>
+}
+
+impl<C, H> MmIndex<C, H> 
+where C: Character,
+      H: XStrRollHasher<CharType=C>,
+{
+    pub fn new(w: &[usize], k: &[usize], hashers: Vec<H>) -> Self {
+        let l = w.len();
+        assert_eq!(l, k.len());
+        MmIndex {
+            ac: Default::default(),
+            w: Vec::from(w),
+            k: Vec::from(k),
+            hasher: hashers,
+            tables: vec![HashMap::new(); l],
+            nseq: 0,
+            offs: vec![0]
+        }
+    }
+
+    #[inline]
+    fn insert(&mut self, index: usize, mmrk: TMmRank, pos: usize) {
+        if !self.tables[index].contains_key(&mmrk) {
+            self.tables[index].insert(mmrk, vec![pos]);
+        } else {
+            self.tables[index].get_mut(&mmrk).unwrap().push(pos);
+        }
+    }
+
+    fn get_abs(&self, index: usize, mmrk: TMmRank) -> Option<&[usize]> {
+        match self.tables[index].get(&mmrk) {
+            None => None,
+            Some(v) => Some(&v)
+        }
+    }
+
+    fn get_rel(&self, index: usize, mmrk: TMmRank) -> Option<(usize, &[usize])> {
+        match self.tables[index].get(&mmrk) {
+            None => None,
+            Some(pos_list) => {
+                let mut iseq = 0;
+                for pos in pos_list.iter() {
+                    if iseq >= self.nseq     
+                }
+
+
+                v.iter().map(|pos|(pred(self.offs,pos))
+                Some(&v)
+            }
+        }
+    }
+
+    pub fn index(
+        &mut self,
+        s: &mut impl XStream<CharType = C>
+    ) -> Result<(), io::Error>
+    where
+        C: Character,
+    {
+        let nidx = self.w.len();
+        let mut window: XString<C> = XString::new();
+        // maximum necessary window buffer length
+        let max_wlen = self.w.iter().zip(self.k.iter()).map(|(a, b)| a + b).max().unwrap() - 1;
+        let min_k = *self.k.iter().min().unwrap();
+        //println!("max_wlen={} k_min={}", max_wlen, min_k);
+
+        let mut wscores: Vec<MQueue<(TMmRank, usize)>> = vec![MQueue::new_min(); nidx];
+        let offset = *self.offs.last().unwrap();
+
+        let mut pos = 0;
+        let mut slen = 0;
+        let mut c = s.get()?;
+        //read in first window
+        while c.is_some() {
+            if pos >= max_wlen {
+                window.rotate_left(1);
+                window[max_wlen - 1] = c.unwrap();
+            } else {
+                window.push(c.unwrap());
+            }
+            pos += 1;
+            for i in 0..nidx {
+                if pos >= self.k[i] {
+                    let (last_mm_rk, _last_mm_pos) = match wscores[i].xtr() {
+                        Some(lmm) => (lmm.0, lmm.1),
+                        None => (0, 0),
+                    };
+                    let kmer_rk = self.hasher[i].hash(&window[window.len() - self.k[i]..]);
+                    let kmer_pos = pos - self.k[i];
+                    wscores[i].push((kmer_rk, kmer_pos));
+                    if pos > self.w[i] + self.k[i] - 1 {
+                        wscores[i].pop();
+                    }
+                    let (cur_mm_rk, _cur_mm_pos) = wscores[i].xtr().unwrap();
+                    if last_mm_rk != *cur_mm_rk {
+                        // new minimiser
+                        for &(rk, p) in wscores[i].xtr_iter() {
+                            self.insert(i, rk, offset+p);
+                        }
+                    } else if *cur_mm_rk == kmer_rk {
+                        // last kmer is a new occ of same old mm
+                        self.insert(i, kmer_rk, offset+kmer_pos);
+                    }
+                }
+            }
+            slen += 1;
+            c = s.get()?;
+        }
+        // index end minimisers
+        let mut still_indexing = true;
+        while still_indexing {
+            still_indexing = false;
+            for i in 0..nidx {
+                if wscores[i].len() > 1 {
+                    still_indexing = true;
+                    let (last_mm_rk, _last_mm_pos) = match wscores[i].xtr() {
+                        Some(lmm) => (lmm.0, lmm.1),
+                        None => (0, 0),
+                    };
+                    wscores[i].pop();
+                    let (cur_mm_rk, _cur_mm_pos) = wscores[i].xtr().unwrap();
+                    if last_mm_rk != *cur_mm_rk {
+                        // new minimiser
+                        for &(rk, p) in wscores[i].xtr_iter() {
+                            self.insert(i, rk, offset+p);
+                        }
+                    }
+                }
+            }
+        }
+        self.offs.push(slen);
+        self.nseq += 1;
+        Ok(())
+    }
+}
+
+/*
 fn find_minimisers<C>(
     s: &mut impl XStream<CharType = C>,
     w: usize,
@@ -68,42 +243,6 @@ where
         }
     }
     Some(minimisers)
-}
-
-type TMmRank = u64;
-
-pub struct MmIndex {
-    w: Vec<usize>,
-    k: Vec<usize>,
-    tables: Vec<HashMap<TMmRank, Vec<usize>>>,
-}
-
-impl MmIndex {
-    fn new(w: &[usize], k: &[usize]) -> MmIndex {
-        let l = w.len();
-        assert_eq!(l, k.len());
-        MmIndex {
-            w: Vec::from(w),
-            k: Vec::from(k),
-            tables: vec![HashMap::new(); l],
-        }
-    }
-
-    fn insert(&mut self, index: usize, mmrk: TMmRank, pos: usize) {
-        if !self.tables[index].contains_key(&mmrk) {
-            self.tables[index].insert(mmrk, vec![pos]);
-        } else {
-            self.tables[index].get_mut(&mmrk).unwrap().push(pos);
-        }
-    }
-
-    fn get(&self, index: usize, mmrk: TMmRank) -> Option<&[usize]> {
-        let v = self.tables[index].get(&mmrk);
-        if v.is_none() {
-            return None;
-        }
-        Some(v.unwrap())
-    }
 }
 
 pub fn index_minimisers<C>(
@@ -186,6 +325,8 @@ where
     }
     Ok(mmindex)
 }
+
+*/
 
 #[cfg(test)]
 mod tests {

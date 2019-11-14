@@ -40,7 +40,7 @@ fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) 
     }
     let ranker_refs: Vec<&DNAHasher> = ranker.iter().collect();
 
-    minimiser::index_minimisers(&mut reader, w, k, &ranker_refs);
+    //minimiser::index_minimisers(&mut reader, w, k, &ranker_refs);
 
     println!("Done");
 }

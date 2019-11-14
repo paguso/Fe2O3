@@ -6,8 +6,9 @@ use std::rc::Rc;
 use crate::alphabet::Alphabet;
 use crate::xstring::XString;
 
-pub struct FastaReader <R> 
-where R: Read
+pub struct FastaReader<R>
+where
+    R: Read,
 {
     reader: BufReader<R>,
 }
@@ -21,18 +22,18 @@ impl FastaReader<File> {
 }
 
 impl<R> FastaReader<R>
-where R: Read + Seek
+where
+    R: Read + Seek,
 {
-
     pub fn new(src: R) -> Result<Self, std::io::Error> {
         Ok(FastaReader {
             reader: BufReader::new(src),
         })
     }
 
-    /// Reads the next FASTA record as a `(desc, seq)` pair where 
-    /// * `desc` is a String with the record description line without the starting `>` 
-    /// * `seq` is the actual sequence as a XString<u8> 
+    /// Reads the next FASTA record as a `(desc, seq)` pair where
+    /// * `desc` is a String with the record description line without the starting `>`
+    /// * `seq` is the actual sequence as a XString<u8>
     /// EOL chars are not included in `desc` or `seq`
     pub fn next_as_xstring(&mut self) -> Result<Option<(String, XString<u8>)>, std::io::Error> {
         // read next id
@@ -47,14 +48,16 @@ where R: Read + Seek
         let mut seq: Vec<u8> = Vec::new();
         loop {
             n = self.reader.read_until(0xA, &mut seq)?;
-            if n==0 { // EOF
-                break; 
-            }
-            else if seq[seq.len() - n] == '>' as u8 { // read description of next sequence. put it back
+            if n == 0 {
+                // EOF
+                break;
+            } else if seq[seq.len() - n] == '>' as u8 {
+                // read description of next sequence. put it back
                 seq.truncate(seq.len() - n);
                 self.reader.seek(SeekFrom::Current(-(n as i64)))?;
                 break;
-            } else { // read one more line. trim EOL.
+            } else {
+                // read one more line. trim EOL.
                 assert_eq!(seq.pop(), Some(0xA));
             }
         }
@@ -65,7 +68,7 @@ where R: Read + Seek
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Write, BufWriter};
+    use std::io::{BufWriter, Write};
 
     const FASTA_FILE: &'static [u8] = b">id1 desc
 AAAAAAAAAA
@@ -102,11 +105,15 @@ GGGGGGGGGG
         let filename = "read_fasta.fas";
         file_setup(&filename);
 
-        let mut reader = FastaReader::new_from_path(&filename).expect(&format!("Unable to open file {}", filename));
+        let mut reader = FastaReader::new_from_path(&filename)
+            .expect(&format!("Unable to open file {}", filename));
         let mut nseq = 0;
-        while let Some((desc, s)) = reader.next_as_xstring().expect("Unable to read from fasta file") {
+        while let Some((desc, s)) = reader
+            .next_as_xstring()
+            .expect("Unable to read from fasta file")
+        {
             println!("fasta description line = {}\n sequence={1:?}", desc, s);
-            nseq +=1;
+            nseq += 1;
         }
         assert_eq!(nseq, 3);
         file_teardown(&filename);
