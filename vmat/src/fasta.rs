@@ -1,9 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
-use std::rc::Rc;
 
-use crate::alphabet::Alphabet;
 use crate::xstring::XString;
 
 pub struct FastaReader<R>

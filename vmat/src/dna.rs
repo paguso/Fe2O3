@@ -109,8 +109,8 @@ impl XStrHasher for DNAHasher {
 }
 
 impl XStrRollHasher for DNAHasher {
-    fn roll_hash(&self, h: &mut u64, c: u8) {
-        *h = (*h << 2) | self.ab.ord(&c).expect("Char not in alphabet") as u64;
+    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: u8) -> u64 {
+        (h << 2) | self.ab.ord(&c).expect("Char not in alphabet") as u64
     }
 }
 

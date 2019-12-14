@@ -4,9 +4,11 @@ use clap::{App, Arg, SubCommand};
 
 use vmat::dna::DNAAlphabet;
 use vmat::dna::DNAHasher;
-use vmat::minimiser;
+use vmat::fasta::FastaReader;
+use vmat::minimiser::MmIndex;
 use vmat::xstream::XStrFileReader;
 use vmat::xstring::XString;
+use vmat::xstring::KmerXStrLexHasher;
 
 fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) {
     println!("Indexing {} to {}", input_filename, output_filename);
@@ -32,17 +34,29 @@ fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) 
         DNAAlphabet::T,
     ];
     let mut ranker = vec![];
-    for _i in 0..m {
-        ranker.push(DNAHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
+    for i in 0..m {
+        ranker.push(KmerXStrLexHasher::new(Rc::new(DNAAlphabet::new_with_permutation(
             &letters,
-        ))));
+        )), k[i]));
         letters.rotate_left(1);
     }
-    let ranker_refs: Vec<&DNAHasher> = ranker.iter().collect();
+    let ranker_refs: Vec<&KmerXStrLexHasher<u8, DNAAlphabet>> = ranker.iter().collect();
 
+    let mut mmindex = MmIndex::new(w, k, &ranker_refs);
     //minimiser::index_minimisers(&mut reader, w, k, &ranker_refs);
+    let mut fasta_reader =
+        FastaReader::new_from_path(input_filename).expect("Cannot open input FASTA file");
+    let mut nseq = 0;
+    while let Some((desc, s)) = fasta_reader
+        .next_as_xstring()
+        .expect("Unable to read from fasta file")
+    {
+        println!("Indexing sequence = {}\n", desc);
+        mmindex.index_xstr(&s).expect("Error indexing sequence");
+        nseq += 1;
+    }
 
-    println!("Done");
+    println!("Done. {} sequences successfuly indexed.", nseq);
 }
 
 fn main() {

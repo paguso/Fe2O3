@@ -22,28 +22,26 @@ pub trait XStream {
     fn get(&mut self) -> Result<Option<Self::CharType>, std::io::Error>;
 }
 
-pub struct XStrStream<C>
+pub struct XStrStream<'a, C>
 where
     C: Character,
 {
-    xstr: XString<C>,
+    xstr: &'a XString<C>,
     cur: usize,
 }
 
-impl<C> XStrStream<C>
+impl<'a, C> XStrStream<'a, C>
 where
     C: Character,
 {
-    pub fn open(xstr: XString<C>) -> Self {
+    pub fn open(xstr: &'a XString<C>) -> Self {
         XStrStream { xstr, cur: 0 }
     }
 
-    pub fn close(self) -> XString<C> {
-        self.xstr
-    }
+    pub fn close(self) {}
 }
 
-impl<C> XStream for XStrStream<C>
+impl<'a, C> XStream for XStrStream<'a, C>
 where
     C: Character,
 {
@@ -190,7 +188,7 @@ mod tests {
         let mut xstr: XString<u8> = XString::new();
         let s = "abcdefghijklmnopqrstuvwxyz".as_bytes();
         xstr.append_from_slice(s);
-        let mut stream = XStrStream::open(xstr);
+        let mut stream = XStrStream::open(&xstr);
         let mut buf = [0; 3];
         let mut sum_chars = 0;
         let mut n = stream.read(&mut buf).unwrap();
@@ -199,10 +197,10 @@ mod tests {
             n = stream.read(&mut buf).unwrap();
         }
         assert_eq!(sum_chars, s.len());
-        xstr = stream.close();
+        stream.close();
         xstr.append_from_slice(s);
         sum_chars = 0;
-        stream = XStrStream::open(xstr);
+        stream = XStrStream::open(&xstr);
         n = stream.read(&mut buf).unwrap();
         while n > 0 {
             sum_chars += n;
@@ -214,8 +212,8 @@ mod tests {
 
     #[test]
     fn test_xstrstream_read_until() {
-        let mut xstr: XString<u8> = XString::from("abcdefghijklmnopqrstuvwxyz".as_bytes());
-        let mut stream = XStrStream::open(xstr);
+        let xstr: XString<u8> = XString::from("abcdefghijklmnopqrstuvwxyz".as_bytes());
+        let mut stream = XStrStream::open(&xstr);
         let mut buf = [0; 12];
         let n = stream.read_until(&mut buf, 'f' as u8).unwrap();
         assert_eq!(n, 5);

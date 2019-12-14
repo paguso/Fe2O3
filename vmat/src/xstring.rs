@@ -121,7 +121,10 @@ pub trait XStrHasher {
 }
 
 pub trait XStrRollHasher: XStrHasher {
-    fn roll_hash(&self, h: &mut u64, c: Self::CharType);
+    /**
+     * Updates the hash `h=h(s) `of string `s=s[0..n-1]` by appending the char `c`.
+     */
+    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: Self::CharType) -> u64;
 }
 
 pub struct XStrLexHasher<C, A>
@@ -163,8 +166,65 @@ where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    fn roll_hash(&self, h: &mut u64, c: Self::CharType) {
-        *h = (*h * self.ab.len() as u64) + self.ab.ord(&c).expect("Char not in alphabet") as u64;
+    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: Self::CharType) -> u64 {
+        (h * self.ab.len() as u64) + (self.ab.ord(&c).expect("Char not in alphabet") as u64)
+    }
+}
+
+pub struct KmerXStrLexHasher<C, A>
+where
+    C: Character,
+    A: Alphabet<CharType = C>,
+{
+    ab: Rc<A>,
+    //k : usize,
+    msd_pow: u64,
+}
+
+impl<C, A> KmerXStrLexHasher<C, A>
+where
+    C: Character,
+    A: Alphabet<CharType = C>,
+{
+    pub fn new(ab: Rc<A>, k: usize) -> Self {
+        let mut msd_pow: u64;
+        {
+            msd_pow = ab.len() as u64;
+        }
+        msd_pow = msd_pow.pow(k as u32 - 1);
+        KmerXStrLexHasher {
+            ab,
+            //k ,
+            msd_pow,
+        }
+    }
+}
+
+impl<C, A> XStrHasher for KmerXStrLexHasher<C, A>
+where
+    C: Character,
+    A: Alphabet<CharType = C>,
+{
+    type CharType = C;
+
+    fn hash(&self, s: &[Self::CharType]) -> u64 {
+        let mut r: u64 = 0;
+        for c in s {
+            r = (r * self.ab.len() as u64) + self.ab.ord(c).expect("Char not in alphabet") as u64;
+        }
+        r
+    }
+}
+
+impl<C, A> XStrRollHasher for KmerXStrLexHasher<C, A>
+where
+    C: Character,
+    A: Alphabet<CharType = C>,
+{
+    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: Self::CharType) -> u64 {
+        ((h - (self.ab.ord(&s[0]).expect("Char not in alphabet") as u64 * self.msd_pow))
+            * (self.ab.len() as u64))
+            + (self.ab.ord(&c).expect("Char not in alphabet") as u64)
     }
 }
 
