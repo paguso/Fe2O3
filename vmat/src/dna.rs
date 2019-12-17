@@ -5,10 +5,13 @@ use std::rc::Rc;
 
 pub struct DNAAlphabet {
     letters: [u8; 4],
-    ranks: [usize; 64],
+    ranks: [usize; 256],
 }
 
 impl DNAAlphabet {
+    const NULL_RK: usize = 255usize;
+    const USIZE_MASK: usize = 255usize;
+
     pub const A: u8 = b'A';
     pub const C: u8 = b'C';
     pub const G: u8 = b'G';
@@ -16,14 +19,14 @@ impl DNAAlphabet {
 
     fn init_ranks(&mut self) {
         for r in self.letters.iter().enumerate() {
-            self.ranks[*r.1 as usize - 65] = r.0;
+            self.ranks[Self::USIZE_MASK & *r.1 as usize] = r.0;
         }
     }
 
     pub fn new() -> DNAAlphabet {
         let mut ret = DNAAlphabet {
             letters: [Self::A, Self::C, Self::G, Self::T],
-            ranks: [0usize; 64],
+            ranks: [Self::NULL_RK; 256],
         };
         ret.init_ranks();
         ret
@@ -39,7 +42,7 @@ impl DNAAlphabet {
         my_letters.copy_from_slice(letters);
         let mut ret = DNAAlphabet {
             letters: my_letters,
-            ranks: [0usize; 64],
+            ranks: [Self::NULL_RK; 256],
         };
         ret.init_ranks();
         ret
@@ -62,17 +65,10 @@ impl Alphabet for DNAAlphabet {
     }
 
     fn ord(&self, chr: &Self::CharType) -> Option<usize> {
-        if *chr == self.letters[0] {
-            return Some(0);
-        } else if *chr == self.letters[1] {
-            return Some(1);
-        } else if *chr == self.letters[2] {
-            return Some(2);
-        } else if *chr == self.letters[3] {
-            return Some(3);
-        } else {
-            return None;
-        };
+        match self.ranks[Self::USIZE_MASK & *chr as usize] {
+            Self::NULL_RK => None,
+            r => Some(r)
+        }
     }
 }
 
@@ -99,10 +95,7 @@ impl XStrHasher for DNAHasher {
         let mut h: u64 = 0;
         for c in s {
             h = (h << 2)
-                | self.ab.ord(c).expect(&format!(
-                    "Char '{0}' not found in alphabet {1:?}",
-                    c, self.ab.letters
-                )) as u64;
+                | self.ab.ord(c).expect("Char not in DNA alphabet") as u64;
         }
         h
     }
@@ -110,7 +103,7 @@ impl XStrHasher for DNAHasher {
 
 impl XStrRollHasher for DNAHasher {
     fn roll_hash(&self, s: &[Self::CharType], h: u64, c: u8) -> u64 {
-        (h << 2) | self.ab.ord(&c).expect("Char not in alphabet") as u64
+        (h << 2) | self.ab.ord(&c).expect("Char not in DNA alphabet") as u64
     }
 }
 

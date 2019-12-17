@@ -73,14 +73,14 @@ where
     }
 
     pub fn push(&mut self, item: T) {
-        let l = self.len();
+        //let l = self.len();
         while self.minmax.len() > 0
             && item.cmp(&self.queue[self.minmax.back().unwrap() - self.popped]) == self.crit
         {
             self.minmax.pop_back();
         }
+        self.minmax.push_back(self.popped + self.len());
         self.queue.push_back(item);
-        self.minmax.push_back(self.popped + l);
     }
 
     pub fn pop(&mut self) -> Option<T> {
