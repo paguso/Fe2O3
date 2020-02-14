@@ -1,24 +1,26 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Index;
 
-pub trait Character: Default + Copy + Eq + Hash {}
+pub trait Character: Default + Copy + Debug + Eq + Hash + Send + Sync + 'static {}
 
 impl Character for u8 {}
 impl Character for u16 {}
 impl Character for u32 {}
 impl Character for char {}
 
-pub trait Alphabet {
+pub trait Alphabet: Clone + Debug + Send + Sync + 'static {
     type CharType: Character;
     fn len(&self) -> usize;
     fn chr(&self, ord: usize) -> Option<&Self::CharType>;
     fn ord(&self, chr: &Self::CharType) -> Option<usize>;
 }
 
+#[derive(Clone, Debug)]
 pub struct HashAlphabet<C>
 where
-    C: Character + Hash,
+    C: Character,
 {
     chr_vec: Vec<C>,
     ord_map: HashMap<C, usize>,
@@ -26,22 +28,25 @@ where
 
 impl<C> HashAlphabet<C>
 where
-    C: Character + Hash,
+    C: Character,
 {
-    pub fn new(chr_vec: Vec<C>) -> HashAlphabet<C> {
+    pub fn new(chars: Vec<C>) -> HashAlphabet<C> {
         let mut ord_map = HashMap::new();
         let mut ord = 0;
-        for c in &chr_vec {
+        for c in &chars {
             ord_map.insert(*c, ord);
             ord += 1;
         }
-        HashAlphabet { chr_vec, ord_map }
+        HashAlphabet {
+            chr_vec: chars,
+            ord_map,
+        }
     }
 }
 
 impl<C> Alphabet for HashAlphabet<C>
 where
-    C: Character + Hash,
+    C: Character,
 {
     type CharType = C;
 
@@ -63,7 +68,7 @@ where
 
 impl<C> Index<usize> for HashAlphabet<C>
 where
-    C: Character + Hash,
+    C: Character,
 {
     type Output = C;
     fn index(&self, idx: usize) -> &Self::Output {

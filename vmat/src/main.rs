@@ -7,7 +7,6 @@ use vmat::dna::DNAHasher;
 use vmat::fasta::FastaReader;
 use vmat::minimiser::MmIndex;
 use vmat::xstream::XStrFileReader;
-use vmat::xstring::KmerXStrLexHasher;
 use vmat::xstring::XString;
 
 fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) {
@@ -33,17 +32,8 @@ fn index(input_filename: &str, output_filename: &str, w: &[usize], k: &[usize]) 
         DNAAlphabet::G,
         DNAAlphabet::T,
     ];
-    let mut ranker = vec![];
-    for i in 0..m {
-        ranker.push(KmerXStrLexHasher::new(
-            Rc::new(DNAAlphabet::new_with_permutation(&letters)),
-            k[i],
-        ));
-        letters.rotate_left(1);
-    }
-    let ranker_refs: Vec<&KmerXStrLexHasher<u8, DNAAlphabet>> = ranker.iter().collect();
 
-    let mut mmindex = MmIndex::new(w, k, &ranker_refs);
+    let mut mmindex = MmIndex::new(w, k, dna_ab);
     //minimiser::index_minimisers(&mut reader, w, k, &ranker_refs);
     let mut fasta_reader =
         FastaReader::new_from_path(input_filename).expect("Cannot open input FASTA file");

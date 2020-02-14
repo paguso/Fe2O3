@@ -122,17 +122,19 @@ pub trait XStrHasher {
 
 pub trait XStrRollHasher: XStrHasher {
     /**
-     * Updates the hash `h=h(s) `of string `s=s[0..n-1]` by appending the char `c`.
+     * Compute the hash h'=h(s[1..n]) from the given h=h(s[0..n-1]) for n>=2.
+     * Panics if n<2.
      */
-    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: Self::CharType) -> u64;
+    fn roll_hash(&self, s: &[Self::CharType], h: u64) -> u64;
 }
 
+#[derive(Debug)]
 pub struct XStrLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    ab: Rc<A>,
+    ab: A,
 }
 
 impl<C, A> XStrLexHasher<C, A>
@@ -140,7 +142,7 @@ where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    pub fn new(ab: Rc<A>) -> Self {
+    pub fn new(ab: A) -> Self {
         XStrLexHasher { ab }
     }
 }
@@ -166,41 +168,35 @@ where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: Self::CharType) -> u64 {
-        (h * self.ab.len() as u64) + (self.ab.ord(&c).expect("Char not in alphabet") as u64)
+    fn roll_hash(&self, s: &[Self::CharType], h: u64) -> u64 {
+        (h * self.ab.len() as u64)
+            + (self.ab.ord(&s[s.len() - 1]).expect("Char not in alphabet") as u64)
     }
 }
 
-pub struct KmerXStrLexHasher<C, A>
+#[derive(Debug)]
+pub struct KmerLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    ab: Rc<A>,
-    //k : usize,
+    ab: A,
+    k: usize,
     msd_pow: u64,
 }
 
-impl<C, A> KmerXStrLexHasher<C, A>
+impl<C, A> KmerLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    pub fn new(ab: Rc<A>, k: usize) -> Self {
-        let mut msd_pow: u64;
-        {
-            msd_pow = ab.len() as u64;
-        }
-        msd_pow = msd_pow.pow(k as u32 - 1);
-        KmerXStrLexHasher {
-            ab,
-            //k ,
-            msd_pow,
-        }
+    pub fn new(ab: A, k: usize) -> Self {
+        let msd_pow: u64 = (ab.len() as u64).pow(k as u32 - 1);
+        KmerLexHasher { ab, k, msd_pow }
     }
 }
 
-impl<C, A> XStrHasher for KmerXStrLexHasher<C, A>
+impl<C, A> XStrHasher for KmerLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
@@ -216,17 +212,29 @@ where
     }
 }
 
-impl<C, A> XStrRollHasher for KmerXStrLexHasher<C, A>
+impl<C, A> XStrRollHasher for KmerLexHasher<C, A>
 where
     C: Character,
     A: Alphabet<CharType = C>,
 {
-    fn roll_hash(&self, s: &[Self::CharType], h: u64, c: Self::CharType) -> u64 {
+    fn roll_hash(&self, s: &[Self::CharType], h: u64) -> u64 {
         ((h - (self.ab.ord(&s[0]).expect("Char not in alphabet") as u64 * self.msd_pow))
             * (self.ab.len() as u64))
-            + (self.ab.ord(&c).expect("Char not in alphabet") as u64)
+            + (self.ab.ord(&s[s.len() - 1]).expect("Char not in alphabet") as u64)
     }
 }
+/*
+use std::fmt;
+impl<C,A> fmt::Debug for KmerLexHasher<C,A>
+where
+    C: Character,
+    A: Alphabet<CharType = C>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "KmerLexHasher alphabet={:?}", self.ab );
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {
